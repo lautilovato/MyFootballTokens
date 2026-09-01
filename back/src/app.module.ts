@@ -1,7 +1,12 @@
+import { CacheModule } from '@nestjs/cache-manager';
 import { Module } from '@nestjs/common';
 import { createObserveModule } from '@nestjs/observe';
+import KeyvRedis from '@keyv/redis';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
+import { DatabaseModule } from './infrastructure/database/database.module';
+import { LoggingModule } from './shared/logging/logging.module';
+import { PlayerModule } from './modules/player/player.module';
 
 export const { ObserveModule, ObserveInstrument } = createObserveModule();
 
@@ -14,6 +19,18 @@ export const { ObserveModule, ObserveInstrument } = createObserveModule();
       appSecret: 'YOUR_APP_SECRET',
       serviceId: 'back',
     }),
+    LoggingModule,
+    DatabaseModule,
+    CacheModule.registerAsync({
+      isGlobal: true,
+      useFactory: () => ({
+        stores: [
+          new KeyvRedis(`redis://${process.env.REDIS_HOST}:${process.env.REDIS_PORT}`),
+        ],
+        ttl: Number(process.env.PLAYERS_CACHE_TTL_SECONDS ?? 60) * 1000,
+      }),
+    }),
+    PlayerModule,
   ],
   controllers: [AppController],
   providers: [AppService],

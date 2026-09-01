@@ -1,3 +1,4 @@
+import { randomUUID } from 'node:crypto';
 import { Entity, PrimaryKey, Property, ManyToOne, Enum } from '@mikro-orm/decorators/legacy';
 import { Team } from './team.entity';
 
@@ -10,8 +11,8 @@ export enum PlayerPosition {
 
 @Entity()
 export class Player {
-  @PrimaryKey({ type: 'number' })
-  id!: number;
+  @PrimaryKey({ type: 'uuid' })
+  id: string = randomUUID();
 
   @Property({ type: 'string' })
   fullName!: string;
@@ -24,6 +25,9 @@ export class Player {
 
   @Property({ type: 'string', nullable: true })
   externalFootballDataId?: string;
+
+  @Property({ type: 'decimal', precision: 10, scale: 2 })
+  baseValue!: string;
 
   @ManyToOne(() => Team)
   team!: Team;
