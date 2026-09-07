@@ -8,6 +8,23 @@
       "name": "league",
       "schema": "public",
       "columns": {
+        "code": {
+          "name": "code",
+          "type": "varchar(255)",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": true,
+          "unique": true,
+          "length": 255,
+          "precision": null,
+          "scale": null,
+          "default": null,
+          "comment": null,
+          "collation": null,
+          "enumItems": [],
+          "mappedType": "string"
+        },
         "country": {
           "name": "country",
           "type": "varchar(255)",
@@ -24,6 +41,23 @@
           "collation": null,
           "enumItems": [],
           "mappedType": "string"
+        },
+        "external_id": {
+          "name": "external_id",
+          "type": "int",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": true,
+          "unique": true,
+          "length": null,
+          "precision": null,
+          "scale": null,
+          "default": null,
+          "comment": null,
+          "collation": null,
+          "enumItems": [],
+          "mappedType": "integer"
         },
         "id": {
           "name": "id",
@@ -63,6 +97,26 @@
       "indexes": [
         {
           "columnNames": [
+            "code"
+          ],
+          "composite": false,
+          "constraint": true,
+          "keyName": "league_code_unique",
+          "primary": false,
+          "unique": true
+        },
+        {
+          "columnNames": [
+            "external_id"
+          ],
+          "composite": false,
+          "constraint": true,
+          "keyName": "league_external_id_unique",
+          "primary": false,
+          "unique": true
+        },
+        {
+          "columnNames": [
             "name"
           ],
           "composite": false,
@@ -91,6 +145,23 @@
       "name": "player",
       "schema": "public",
       "columns": {
+        "base_value": {
+          "name": "base_value",
+          "type": "numeric(10,2)",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": false,
+          "unique": false,
+          "length": null,
+          "precision": 10,
+          "scale": 2,
+          "default": null,
+          "comment": null,
+          "collation": null,
+          "enumItems": [],
+          "mappedType": "decimal"
+        },
         "created_at": {
           "name": "created_at",
           "type": "timestamptz(6)",
@@ -108,6 +179,23 @@
           "enumItems": [],
           "mappedType": "datetime"
         },
+        "date_of_birth": {
+          "name": "date_of_birth",
+          "type": "date",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": true,
+          "unique": false,
+          "length": null,
+          "precision": null,
+          "scale": null,
+          "default": null,
+          "comment": null,
+          "collation": null,
+          "enumItems": [],
+          "mappedType": "date"
+        },
         "external_football_data_id": {
           "name": "external_football_data_id",
           "type": "varchar(255)",
@@ -115,7 +203,7 @@
           "autoincrement": false,
           "primary": false,
           "nullable": true,
-          "unique": false,
+          "unique": true,
           "length": 255,
           "precision": null,
           "scale": null,
@@ -176,22 +264,22 @@
           "enumItems": [],
           "mappedType": "uuid"
         },
-        "base_value": {
-          "name": "base_value",
-          "type": "numeric(10,2)",
+        "nationality": {
+          "name": "nationality",
+          "type": "varchar(255)",
           "unsigned": false,
           "autoincrement": false,
           "primary": false,
-          "nullable": false,
+          "nullable": true,
           "unique": false,
-          "length": null,
-          "precision": 10,
-          "scale": 2,
+          "length": 255,
+          "precision": null,
+          "scale": null,
           "default": null,
           "comment": null,
           "collation": null,
           "enumItems": [],
-          "mappedType": "decimal"
+          "mappedType": "string"
         },
         "position": {
           "name": "position",
@@ -211,9 +299,27 @@
             "GK",
             "DF",
             "MF",
-            "FW"
+            "FW",
+            "UNKNOWN"
           ],
           "mappedType": "enum"
+        },
+        "shirt_number": {
+          "name": "shirt_number",
+          "type": "int",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": true,
+          "unique": false,
+          "length": null,
+          "precision": null,
+          "scale": null,
+          "default": null,
+          "comment": null,
+          "collation": null,
+          "enumItems": [],
+          "mappedType": "integer"
         },
         "team_id": {
           "name": "team_id",
@@ -253,6 +359,16 @@
       "indexes": [
         {
           "columnNames": [
+            "external_football_data_id"
+          ],
+          "composite": false,
+          "constraint": true,
+          "keyName": "player_external_football_data_id_unique",
+          "primary": false,
+          "unique": true
+        },
+        {
+          "columnNames": [
             "id"
           ],
           "composite": false,
@@ -265,8 +381,8 @@
       "checks": [
         {
           "name": "player_position_check",
-          "expression": "\"position\" in ('GK', 'DF', 'MF', 'FW')",
-          "definition": "check (\"position\" in ('GK', 'DF', 'MF', 'FW'))",
+          "expression": "\"position\" in ('GK', 'DF', 'MF', 'FW', 'UNKNOWN')",
+          "definition": "check (\"position\" in ('GK', 'DF', 'MF', 'FW', 'UNKNOWN'))",
           "columnName": "position"
         }
       ],
@@ -290,6 +406,40 @@
       "name": "team",
       "schema": "public",
       "columns": {
+        "crest_url": {
+          "name": "crest_url",
+          "type": "varchar(255)",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": true,
+          "unique": false,
+          "length": 255,
+          "precision": null,
+          "scale": null,
+          "default": null,
+          "comment": null,
+          "collation": null,
+          "enumItems": [],
+          "mappedType": "string"
+        },
+        "external_id": {
+          "name": "external_id",
+          "type": "int",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": true,
+          "unique": true,
+          "length": null,
+          "precision": null,
+          "scale": null,
+          "default": null,
+          "comment": null,
+          "collation": null,
+          "enumItems": [],
+          "mappedType": "integer"
+        },
         "id": {
           "name": "id",
           "type": "int",
@@ -340,9 +490,53 @@
           "collation": null,
           "enumItems": [],
           "mappedType": "string"
+        },
+        "short_name": {
+          "name": "short_name",
+          "type": "varchar(255)",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": true,
+          "unique": false,
+          "length": 255,
+          "precision": null,
+          "scale": null,
+          "default": null,
+          "comment": null,
+          "collation": null,
+          "enumItems": [],
+          "mappedType": "string"
+        },
+        "tla": {
+          "name": "tla",
+          "type": "varchar(255)",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": true,
+          "unique": false,
+          "length": 255,
+          "precision": null,
+          "scale": null,
+          "default": null,
+          "comment": null,
+          "collation": null,
+          "enumItems": [],
+          "mappedType": "string"
         }
       },
       "indexes": [
+        {
+          "columnNames": [
+            "external_id"
+          ],
+          "composite": false,
+          "constraint": true,
+          "keyName": "team_external_id_unique",
+          "primary": false,
+          "unique": true
+        },
         {
           "columnNames": [
             "id"

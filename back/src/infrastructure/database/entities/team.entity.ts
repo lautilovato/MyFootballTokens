@@ -11,6 +11,18 @@ export class Team {
   @Property({ type: 'string' })
   name!: string;
 
+  @Property({ type: 'number', unique: true, nullable: true })
+  externalId?: number; // id de Team en Football-Data.org
+
+  @Property({ type: 'string', nullable: true })
+  shortName?: string;
+
+  @Property({ type: 'string', nullable: true })
+  tla?: string;
+
+  @Property({ type: 'string', nullable: true })
+  crestUrl?: string;
+
   @ManyToOne(() => League)
   league!: League;
 

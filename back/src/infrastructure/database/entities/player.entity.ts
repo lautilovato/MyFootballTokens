@@ -7,6 +7,7 @@ export enum PlayerPosition {
   DF = 'DF',
   MF = 'MF',
   FW = 'FW',
+  UNKNOWN = 'UNKNOWN',
 }
 
 @Entity()
@@ -23,8 +24,17 @@ export class Player {
   @Property({ type: 'string', nullable: true })
   externalWhoScoredId?: string;
 
-  @Property({ type: 'string', nullable: true })
+  @Property({ type: 'string', unique: true, nullable: true })
   externalFootballDataId?: string;
+
+  @Property({ type: 'date', nullable: true })
+  dateOfBirth?: string;
+
+  @Property({ type: 'string', nullable: true })
+  nationality?: string;
+
+  @Property({ type: 'number', nullable: true })
+  shirtNumber?: number;
 
   @Property({ type: 'decimal', precision: 10, scale: 2 })
   baseValue!: string;

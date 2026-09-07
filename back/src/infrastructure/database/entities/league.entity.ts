@@ -13,6 +13,12 @@ export class League {
   @Property({ type: 'string' })
   country!: string;
 
+  @Property({ type: 'number', unique: true, nullable: true })
+  externalId?: number; // id de Competition en Football-Data.org
+
+  @Property({ type: 'string', unique: true, nullable: true })
+  code?: string; // "PL", "BL1", "PD", "SA", "FL1"
+
   @OneToMany(() => Team, team => team.league)
   teams = new Collection<Team>(this);
 }

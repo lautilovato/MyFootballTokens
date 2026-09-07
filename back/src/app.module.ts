@@ -6,6 +6,7 @@ import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { DatabaseModule } from './infrastructure/database/database.module';
 import { LoggingModule } from './shared/logging/logging.module';
+import { IngestionModule } from './modules/ingestion/ingestion.module';
 import { PlayerModule } from './modules/player/player.module';
 
 export const { ObserveModule, ObserveInstrument } = createObserveModule();
@@ -31,6 +32,7 @@ export const { ObserveModule, ObserveInstrument } = createObserveModule();
       }),
     }),
     PlayerModule,
+    IngestionModule,
   ],
   controllers: [AppController],
   providers: [AppService],
