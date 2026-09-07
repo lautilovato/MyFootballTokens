@@ -170,10 +170,10 @@ quickstart.md).
 - [X] T024 [P] Revisar que la documentación Swagger de `IngestionController`
       (`back/src/modules/ingestion/ingestion.controller.ts`) coincide con
       `contracts/ingestion.openapi.yaml`
-- [ ] T025 Ejecutar manualmente los 4 escenarios de `quickstart.md` contra un backend real
-      (bootstrap, idempotencia, resiliencia, documentación/trazabilidad) — **pendiente**:
-      requiere una `FOOTBALL_DATA_API_KEY` real; solo se verificó que el endpoint y el DI
-      wiring responden (ver Notes de implementación al final de este archivo)
+- [X] T025 Ejecutar manualmente los 4 escenarios de `quickstart.md` contra un backend real
+      (bootstrap, idempotencia, resiliencia, documentación/trazabilidad) — Escenario 1 corrido
+      contra Football-Data.org real: `{"leagues":5,"teams":96,"players":2636}`, 0 fallas
+      parciales, verificado también desde `GET /players` (módulo `01-catalogo-jugadores`)
 - [X] T026 [P] Revisar que los logs estructurados de una corrida completa siguen el mismo
       formato JSON que `PlayerService` (correlation id incluido)
 
@@ -266,7 +266,6 @@ Task: "Extender Player en back/src/infrastructure/database/entities/player.entit
   background que no cierra solo — cosmético, no afecta el resultado de los tests.
 - `back/test/ingestion.e2e-spec.ts` corre en verde (4 tests) junto con el
   `app.e2e-spec.ts` original (1 test) — 5/5 tests, `npm run build` y `npm run lint` limpios.
-- T025 (los 4 escenarios manuales de `quickstart.md` contra Football-Data.org real) sigue sin
-  correrse de punta a punta — ahora hay `FOOTBALL_DATA_API_KEY` real en `.env`, pero ejecutar
-  el bootstrap completo toma varios minutos por el rate limit; queda para que lo corra el
-  usuario o una próxima sesión.
+- T025: bootstrap real corrido contra Football-Data.org (`.env` con `FOOTBALL_DATA_API_KEY`
+  real) — `{"leagues":5,"teams":96,"players":2636}`, 0 fallas parciales, ~11 minutos por el
+  rate limit (10 req/min). Confirmado también desde `GET /players` (`01-catalogo-jugadores`).
