@@ -1,0 +1,31 @@
+openapi: 3.0.3
+info:
+  title: Ingesta de Catálogo de Jugadores
+  version: "1.0.0"
+  description: >
+    Endpoint interno para disparar manualmente el bootstrap del catálogo (ligas, equipos
+    y jugadores) desde Football-Data.org.
+paths:
+  /ingestion/players:
+    post:
+      tags: [Ingestion]
+      summary: Dispara la ingesta completa del catálogo (5 ligas, equipos, jugadores)
+      operationId: runPlayersIngestion
+      responses:
+        "200":
+          description: >
+            Ingesta finalizada (con o sin fallas parciales de liga/equipo); devuelve el
+            resumen de lo procesado en esta corrida.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/IngestionResult"
+components:
+  schemas:
+    IngestionResult:
+      type: object
+      properties:
+        leagues: { type: integer, description: "Ligas configuradas procesadas (siempre 5)." }
+        teams: { type: integer, description: "Equipos con upsert exitoso en esta corrida." }
+        players: { type: integer, description: "Jugadores con upsert exitoso en esta corrida." }
+      required: [leagues, teams, players]

@@ -1,0 +1,118 @@
+openapi: 3.0.3
+info:
+  title: Catálogo de Jugadores
+  version: "1.0.0"
+  description: >
+    API de solo lectura para listar y consultar jugadores de las 5 ligas principales.
+paths:
+  /players:
+    get:
+      tags: [Players]
+      summary: Listado paginado de jugadores
+      operationId: getPlayers
+      parameters:
+        - in: query
+          name: league
+          schema: { type: string }
+          required: false
+          example: "Premier League"
+        - in: query
+          name: team
+          schema: { type: string }
+          required: false
+          example: "Manchester City"
+        - in: query
+          name: position
+          schema: { type: string, enum: [GK, DF, MF, FW] }
+          required: false
+        - in: query
+          name: page
+          schema: { type: integer, minimum: 1, default: 1 }
+          required: false
+        - in: query
+          name: limit
+          schema: { type: integer, minimum: 1, maximum: 100, default: 20 }
+          required: false
+      responses:
+        "200":
+          description: Lista paginada de jugadores (cacheada en Redis)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PlayerListResponse"
+        "400":
+          description: Parámetros de query inválidos (ej. limit=abc)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+  /players/{id}:
+    get:
+      tags: [Players]
+      summary: Detalle de un jugador
+      operationId: getPlayerById
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        "200":
+          description: Jugador encontrado
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Player"
+        "400":
+          description: El id no tiene formato UUID válido
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: No existe un jugador con ese id
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+components:
+  schemas:
+    Player:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        name: { type: string }
+        position: { type: string, enum: [GK, DF, MF, FW] }
+        team: { type: string }
+        league: { type: string }
+        baseValue: { type: number, format: decimal }
+        externalId: { type: string, nullable: true }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time, nullable: true }
+      required: [id, name, position, team, league, baseValue, createdAt]
+    PlayerListResponse:
+      type: object
+      properties:
+        data:
+          type: array
+          items: { $ref: "#/components/schemas/Player" }
+        meta:
+          type: object
+          properties:
+            total: { type: integer }
+            page: { type: integer }
+            limit: { type: integer }
+            totalPages: { type: integer }
+          required: [total, page, limit, totalPages]
+      required: [data, meta]
+    ErrorResponse:
+      type: object
+      properties:
+        statusCode: { type: integer }
+        message:
+          oneOf:
+            - type: string
+            - type: array
+              items: { type: string }
+        error: { type: string }
+      required: [statusCode, message]
