@@ -1,0 +1,82 @@
+openapi: 3.0.3
+info:
+  title: Enriquecimiento de Jugadores con Métricas de WhoScored
+  version: "1.0.0"
+  description: >
+    Endpoints internos para disparar el refresh periódico de métricas agregadas por
+    temporada, y el detalle partido a partido bajo demanda de un jugador puntual.
+paths:
+  /player-stats/refresh:
+    post:
+      tags: [PlayerStats]
+      summary: >
+        Dispara el refresh periódico de métricas de temporada para todos los equipos
+        mapeados a WhoScored
+      operationId: refreshPlayerStats
+      responses:
+        "200":
+          description: >
+            Refresh finalizado (con o sin fallas parciales de equipo/jugador, o abortado
+            temprano por bloqueo generalizado del proveedor).
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PlayerStatsRefreshResult"
+  /player-stats/{playerId}/matches:
+    get:
+      tags: [PlayerStats]
+      summary: Obtiene (y persiste) el detalle partido a partido de un jugador puntual
+      operationId: getPlayerMatchStats
+      parameters:
+        - name: playerId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        "200":
+          description: Detalle partido a partido persistido para el jugador.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PlayerMatchStatsResponse"
+        "404":
+          description: El jugador no existe.
+        "409":
+          description: >
+            El jugador existe pero no tiene `externalWhoScoredId` (sin match con WhoScored
+            todavía) — no hay página de WhoScored de la cual obtener el detalle.
+components:
+  schemas:
+    PlayerStatsRefreshResult:
+      type: object
+      properties:
+        teamsProcessed: { type: integer, description: "Equipos con al menos un upsert exitoso." }
+        teamsSkipped: { type: integer, description: "Equipos sin externalWhoScoredId mapeado." }
+        playersUpdated: { type: integer, description: "Jugadores con snapshot de temporada actualizado." }
+        playersUnmatched: { type: integer, description: "Jugadores de WhoScored registrados para revisión manual." }
+      required: [teamsProcessed, teamsSkipped, playersUpdated, playersUnmatched]
+    PlayerMatchStatsResponse:
+      type: object
+      properties:
+        playerId: { type: string, format: uuid }
+        playerName: { type: string }
+        matches:
+          type: array
+          items:
+            $ref: "#/components/schemas/MatchStats"
+      required: [playerId, playerName, matches]
+    MatchStats:
+      type: object
+      properties:
+        whoScoredMatchId: { type: string }
+        matchDate: { type: string, format: date }
+        season: { type: string, example: "2025-2026" }
+        goals: { type: integer }
+        assists: { type: integer }
+        shots: { type: integer }
+        keyPasses: { type: integer }
+        dribbles: { type: integer }
+        tackles: { type: integer }
+        rating: { type: number, format: float }
+      required:
+        [whoScoredMatchId, matchDate, season, goals, assists, shots, keyPasses, dribbles, tackles, rating]

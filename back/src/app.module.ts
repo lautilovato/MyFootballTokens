@@ -8,6 +8,8 @@ import { DatabaseModule } from './infrastructure/database/database.module';
 import { LoggingModule } from './shared/logging/logging.module';
 import { IngestionModule } from './modules/ingestion/ingestion.module';
 import { PlayerModule } from './modules/player/player.module';
+import { PlayerStatsModule } from './modules/player-stats/player-stats.module';
+import { TeamWhoScoredMatchingModule } from './modules/team-whoscored-matching/team-whoscored-matching.module';
 
 export const { ObserveModule, ObserveInstrument } = createObserveModule();
 
@@ -33,6 +35,8 @@ export const { ObserveModule, ObserveInstrument } = createObserveModule();
     }),
     PlayerModule,
     IngestionModule,
+    PlayerStatsModule,
+    TeamWhoScoredMatchingModule,
   ],
   controllers: [AppController],
   providers: [AppService],

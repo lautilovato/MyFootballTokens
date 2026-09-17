@@ -1,0 +1,33 @@
+openapi: 3.0.3
+info:
+  title: Matching Automático de Equipos con WhoScored
+  version: "1.0.0"
+  description: >
+    Endpoint interno para disparar manualmente el matching automático de
+    Team.externalWhoScoredId contra la tabla de posiciones de cada liga en WhoScored.
+paths:
+  /team-whoscored-matching/refresh:
+    post:
+      tags: [TeamWhoScoredMatching]
+      summary: >
+        Completa Team.externalWhoScoredId para los equipos sin mapear de cada liga ya
+        cargada, comparando contra la tabla de posiciones de esa liga en WhoScored
+      operationId: refreshTeamWhoScoredMatching
+      responses:
+        "200":
+          description: >
+            Corrida finalizada (con o sin fallas parciales de liga, o equipos sin match).
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TeamWhoScoredMatchingResult"
+components:
+  schemas:
+    TeamWhoScoredMatchingResult:
+      type: object
+      properties:
+        leaguesProcessed: { type: integer, description: "Ligas con al menos un equipo sin mapear, procesadas en esta corrida." }
+        leaguesSkipped: { type: integer, description: "Ligas donde todos los equipos ya tenían externalWhoScoredId." }
+        teamsMatched: { type: integer, description: "Equipos con externalWhoScoredId seteado en esta corrida." }
+        teamsUnmatched: { type: integer, description: "Equipos de WhoScored registrados en la cola de revisión manual." }
+      required: [leaguesProcessed, leaguesSkipped, teamsMatched, teamsUnmatched]
