@@ -23,6 +23,9 @@ export class Team {
   @Property({ type: 'string', nullable: true })
   crestUrl?: string;
 
+  @Property({ type: 'string', unique: true, nullable: true })
+  externalWhoScoredId?: string; // id de Team en WhoScored (mapeo manual, ver research.md #5 de 03-ingesta-stats)
+
   @ManyToOne(() => League)
   league!: League;
 

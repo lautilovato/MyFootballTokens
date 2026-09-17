@@ -1,3 +1,25 @@
+<!--
+SYNC IMPACT REPORT
+Version change: 1.0.0 → 1.1.0
+Rationale: MINOR bump — expands section 7 with three clarifications instead of
+redefining or removing anything. Triggered by /speckit-analyze findings on feature
+03-ingesta-stats: (1) a domain module folder had a pure utility file (name-matcher.ts)
+the previous wording didn't clearly permit; (2) two features (02-ingesta-catalogo,
+03-ingesta-stats) independently resolved "does an internal batch module need a
+controller?" the same way, without that decision being codified anywhere; (3) the
+concrete filesystem path for the Adapters layer (named in section 3) was never spelled
+out the way the entities path is in section 7.
+Modified principles: 7. Estructura de Directorios y Arquitectura — expanded (not
+redefined): explicit exception for pure framework-free utility files in a domain
+folder; controller.ts now explicitly mandatory even without inherent HTTP need; new
+"Capa de Adapters" subsection giving the concrete path convention.
+Added sections: none (existing section 7 expanded in place)
+Removed sections: none
+Deferred placeholders / TODOs: none
+Templates requiring follow-up: none checked by this command (see Scope Guard — dependent
+templates read this file at runtime and are not modified here)
+-->
+
 # Constitución del Proyecto: Mercado de Jugadores de Fútbol
 
 ## 1. Contexto Global y Estándares
@@ -62,8 +84,45 @@ El código de negocio debe organizarse en `/modules/` agrupado por dominio (por 
 *   `<nombre-dominio>.repository.ts` (Clase de persistencia inyectada)
 *   `dto/` (Directorio exclusivo para los Data Transfer Objects de este dominio)
 
+`<nombre-dominio>.controller.ts` es obligatorio en todo módulo de dominio, incluso cuando el
+módulo no tiene una necesidad de negocio directa de exponer HTTP (por ejemplo, un proceso de
+ingesta o batch). En ese caso el controller expone al menos un endpoint de disparo manual del
+proceso, reusable luego por un scheduler u otro consumidor interno — no se omite el archivo ni
+se invoca el service directamente desde fuera del módulo.
+
+**Excepción — utilidades puras sin framework:** la carpeta de un dominio puede incluir, además
+de los 5 elementos de arriba, archivos planos de utilidad pura: sin decoradores de NestJS, sin
+inyección de dependencias, sin acceso a base de datos. Se permiten únicamente cuando la lógica
+que contienen debe ser testeable sin levantar el framework ni una base de datos real (por
+ejemplo, un algoritmo de comparación/matching de nombres). Estos archivos no son una capa nueva
+ni reemplazan ninguno de los 5 elementos obligatorios — son la única desviación permitida de la
+palabra "exactamente" de arriba.
+
+**Capa de Adapters:**
+La capa "Adapters (APIs externas)" de la sección 3 vive en una ruta propia, hermana de
+`/infrastructure/` y `/modules/`, agrupada por proveedor externo:
+*   `/back/src/adapters/<proveedor>/` (por ejemplo, `/back/src/adapters/football-data/`,
+    `/back/src/adapters/who-scored/`)
+
+Cada adapter aísla el cliente HTTP y la normalización de la forma cruda del proveedor externo;
+los módulos de dominio que lo consumen solo conocen los tipos ya normalizados que el adapter
+expone, nunca los DTOs crudos del proveedor.
+
 **Capa de Infraestructura:**
 Todas las entidades de la base de datos (modelos de MikroORM) están estrictamente separadas de los módulos de dominio. Cuando la IA genere o modifique una entidad, debe hacerlo exclusivamente en la siguiente ruta:
 *   `/infrastructure/database/entities/`
 
-Bajo ninguna circunstancia se deben crear archivos de entidades dentro de las carpetas de `/modules/`.
+Bajo ninguna circunstancia se deben crear archivos de entidades dentro de las carpetas de `/modules/` ni de `/adapters/`.
+
+## 8. Gobernanza
+
+*   Esta constitución prevalece sobre cualquier otra práctica, guía o preferencia individual dentro del proyecto. Ante un conflicto entre una instrucción puntual y este documento, prevalece este documento salvo enmienda explícita.
+*   Toda enmienda debe documentarse indicando el motivo del cambio y su impacto en los artefactos dependientes (specs, plans, tasks).
+*   Las enmiendas siguen versionado semántico (MAJOR.MINOR.PATCH):
+    *   **MAJOR:** eliminación o redefinición incompatible de una regla o principio existente.
+    *   **MINOR:** incorporación de un nuevo principio o sección, o ampliación material de una guía existente.
+    *   **PATCH:** aclaraciones, correcciones de redacción o ajustes no semánticos.
+*   Toda revisión de código (Pull Request) debe verificar el cumplimiento de esta constitución antes de ser aprobada.
+*   Cualquier excepción o complejidad que se aparte de estas reglas debe justificarse explícitamente en la spec o plan correspondiente.
+
+**Versión**: 1.1.0 | **Ratificada**: 2026-08-29 | **Última Enmienda**: 2026-09-16

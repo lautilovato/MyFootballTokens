@@ -21,7 +21,7 @@ export class Player {
   @Enum(() => PlayerPosition)
   position!: PlayerPosition;
 
-  @Property({ type: 'string', nullable: true })
+  @Property({ type: 'string', unique: true, nullable: true })
   externalWhoScoredId?: string;
 
   @Property({ type: 'string', unique: true, nullable: true })
@@ -35,6 +35,9 @@ export class Player {
 
   @Property({ type: 'number', nullable: true })
   shirtNumber?: number;
+
+  @Property({ type: 'number', nullable: true })
+  height?: number; // cm, atributo del jugador (no de temporada) — se completa una sola vez
 
   @Property({ type: 'decimal', precision: 10, scale: 2 })
   baseValue!: string;
