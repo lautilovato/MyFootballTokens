@@ -1,10 +1,14 @@
-import { Controller, Post } from '@nestjs/common';
-import { ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
+import { Controller, Post, UseGuards } from '@nestjs/common';
+import { ApiOperation, ApiResponse, ApiSecurity, ApiTags } from '@nestjs/swagger';
+import { ApiKeyGuard } from '../../shared/auth/api-key.guard';
+import { SWAGGER_API_KEY_SCHEME } from '../../shared/auth/auth.constants';
 import { IngestionResultDto } from './dto/ingestion-result.dto';
 import { IngestionService } from './ingestion.service';
 
 @ApiTags('Ingestion')
 @Controller('ingestion')
+@UseGuards(ApiKeyGuard)
+@ApiSecurity(SWAGGER_API_KEY_SCHEME)
 export class IngestionController {
   constructor(private readonly ingestionService: IngestionService) {}
 
