@@ -1,0 +1,49 @@
+@import "tailwindcss";
+
+/* Paleta y tipografía de la plataforma (FR-023 a FR-026, research #11).
+   Tailwind 4 es CSS-first: esto reemplaza al tailwind.config.js de v3. */
+@theme {
+  --color-navy-deep: #060b18;
+  --color-navy: #0a1628;
+  --color-navy-card: #101f38;
+  --color-neon-blue: #38bdf8;
+  --color-neon-blue-glow: #0ea5e9;
+  --color-gold: #d4af37;
+  --color-gold-bright: #f0ce62;
+  --color-neon-green: #4ade80;
+  --color-error-red: #ff4d5e;
+
+  --font-display: "Oswald", "Archivo Narrow", "Roboto Condensed", ui-sans-serif, system-ui, sans-serif;
+  --font-sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+}
+
+/* Esquinas biseladas: clip-path, no border-radius — un chaflán real (FR-023). */
+@utility bevel {
+  clip-path: polygon(
+    1.25rem 0, 100% 0, 100% calc(100% - 1.25rem),
+    calc(100% - 1.25rem) 100%, 0 100%, 0 1.25rem
+  );
+}
+
+/* Aura de carta coleccionable (FR-024). */
+@utility card-glow {
+  box-shadow:
+    0 0 0 1px var(--color-neon-blue),
+    0 0 18px -2px var(--color-neon-blue-glow),
+    0 0 48px -12px var(--color-neon-blue-glow);
+}
+
+/* Títulos: sans-serif condensada y en negrita (FR-025). */
+@utility title-display {
+  font-family: var(--font-display);
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+body {
+  margin: 0;
+  background-color: var(--color-navy-deep);
+  color: #e8eefc;
+  font-family: var(--font-sans);
+}

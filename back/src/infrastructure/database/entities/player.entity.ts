@@ -1,3 +1,4 @@
+import { randomUUID } from 'node:crypto';
 import { Entity, PrimaryKey, Property, ManyToOne, Enum } from '@mikro-orm/decorators/legacy';
 import { Team } from './team.entity';
 
@@ -6,12 +7,13 @@ export enum PlayerPosition {
   DF = 'DF',
   MF = 'MF',
   FW = 'FW',
+  UNKNOWN = 'UNKNOWN',
 }
 
 @Entity()
 export class Player {
-  @PrimaryKey({ type: 'number' })
-  id!: number;
+  @PrimaryKey({ type: 'uuid' })
+  id: string = randomUUID();
 
   @Property({ type: 'string' })
   fullName!: string;
@@ -19,11 +21,26 @@ export class Player {
   @Enum(() => PlayerPosition)
   position!: PlayerPosition;
 
-  @Property({ type: 'string', nullable: true })
+  @Property({ type: 'string', unique: true, nullable: true })
   externalWhoScoredId?: string;
 
-  @Property({ type: 'string', nullable: true })
+  @Property({ type: 'string', unique: true, nullable: true })
   externalFootballDataId?: string;
+
+  @Property({ type: 'date', nullable: true })
+  dateOfBirth?: string;
+
+  @Property({ type: 'string', nullable: true })
+  nationality?: string;
+
+  @Property({ type: 'number', nullable: true })
+  shirtNumber?: number;
+
+  @Property({ type: 'number', nullable: true })
+  height?: number; // cm, atributo del jugador (no de temporada) — se completa una sola vez
+
+  @Property({ type: 'decimal', precision: 10, scale: 2 })
+  baseValue!: string;
 
   @ManyToOne(() => Team)
   team!: Team;

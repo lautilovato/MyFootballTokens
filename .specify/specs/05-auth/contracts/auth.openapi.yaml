@@ -1,0 +1,311 @@
+openapi: 3.0.3
+
+info:
+  title: Mercado de Jugadores de Fútbol — Autenticación y Control de Acceso
+  description: >
+    Contrato de la feature 05-auth. Cubre los dos endpoints nuevos de autenticación y declara
+    los dos esquemas de seguridad que pasan a proteger endpoints ya existentes del proyecto.
+    Los endpoints preexistentes se listan acá solo con el esquema que los protege y sus
+    respuestas de rechazo; su contrato funcional sigue definido en las specs 01, 03 y 04.
+  version: 1.0.0
+
+servers:
+  - url: http://localhost:3000
+    description: Desarrollo local
+
+tags:
+  - name: Auth
+    description: Registro e inicio de sesión
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: >
+        Credencial de sesión de usuario emitida por POST /auth/login. Habilita las lecturas de
+        catálogo. No habilita ningún endpoint administrativo (FR-011).
+    adminApiKey:
+      type: apiKey
+      in: header
+      name: x-api-key
+      description: >
+        Clave administrativa estática definida por entorno (ADMIN_API_KEY). Habilita los
+        disparos de ingesta y matching. No identifica a ningún usuario.
+
+  schemas:
+    RegisterRequest:
+      type: object
+      required: [email, username, password]
+      additionalProperties: false
+      properties:
+        email:
+          type: string
+          format: email
+          example: ana@example.com
+          description: Se normaliza a minúsculas antes de persistir. Único en el sistema.
+        username:
+          type: string
+          minLength: 1
+          example: ana
+          description: Identidad visible. No es único.
+        password:
+          type: string
+          format: password
+          minLength: 8
+          example: unaClaveSegura1
+
+    LoginRequest:
+      type: object
+      required: [email, password]
+      additionalProperties: false
+      properties:
+        email:
+          type: string
+          format: email
+          example: ana@example.com
+        password:
+          type: string
+          format: password
+          example: unaClaveSegura1
+          description: >
+            Sin validación de largo mínimo acá a propósito: una contraseña corta debe fallar
+            como credencial inválida, no como error de validación.
+
+    AuthResponse:
+      type: object
+      required: [accessToken, user]
+      properties:
+        accessToken:
+          type: string
+          description: JWT firmado. Payload limitado a sub y username (FR-007).
+          example: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+        user:
+          $ref: '#/components/schemas/UserPublic'
+
+    UserPublic:
+      type: object
+      required: [id, email, username]
+      additionalProperties: false
+      description: >
+        Vista pública del usuario. Se construye por enumeración explícita de campos: nunca se
+        serializa la entidad User directamente (FR-004).
+      properties:
+        id:
+          type: string
+          format: uuid
+        email:
+          type: string
+          format: email
+        username:
+          type: string
+
+    Error:
+      type: object
+      required: [statusCode, message]
+      properties:
+        statusCode:
+          type: integer
+          example: 401
+        message:
+          type: string
+          example: Credenciales inválidas
+        error:
+          type: string
+          example: Unauthorized
+
+paths:
+  /auth/register:
+    post:
+      tags: [Auth]
+      summary: Registra una cuenta nueva
+      description: >
+        Crea un usuario y devuelve una sesión ya iniciada. La contraseña se hashea con bcrypt
+        antes de persistirse y no se devuelve en ninguna forma.
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RegisterRequest'
+      responses:
+        '201':
+          description: Cuenta creada y sesión iniciada
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthResponse'
+        '400':
+          description: Entrada inválida (email mal formado, campos faltantes, contraseña corta)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: >
+            Ya existe una cuenta con ese email. Se devuelve tanto cuando el chequeo previo lo
+            detecta como cuando la restricción única de la base lo rechaza en un registro
+            concurrente.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '429':
+          description: Se superó el límite de peticiones por origen
+        '500':
+          description: Error interno estandarizado, sin traza ni detalle del ORM (FR-015)
+
+  /auth/login:
+    post:
+      tags: [Auth]
+      summary: Inicia sesión
+      description: >
+        Verifica las credenciales y emite un JWT. Un email inexistente y una contraseña
+        incorrecta producen respuestas indistinguibles, en cuerpo y en tiempo de respuesta
+        (FR-008, SC-006, research #8).
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LoginRequest'
+      responses:
+        '200':
+          description: Sesión iniciada
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthResponse'
+        '400':
+          description: Entrada inválida (email mal formado o campos faltantes)
+        '401':
+          description: >
+            Credenciales inválidas. Mismo cuerpo exacto para email inexistente y para
+            contraseña incorrecta.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                statusCode: 401
+                message: Credenciales inválidas
+                error: Unauthorized
+        '429':
+          description: Se superó el límite de peticiones por origen
+        '500':
+          description: Error interno estandarizado, sin traza ni detalle del ORM (FR-015)
+
+  # ---------------------------------------------------------------------------
+  # Endpoints preexistentes: esta feature solo les antepone control de acceso.
+  # Su contrato funcional vive en las specs 01, 03 y 04.
+  # ---------------------------------------------------------------------------
+
+  /players:
+    get:
+      tags: [Players]
+      summary: Listado de jugadores — ahora requiere sesión
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Lista paginada (contrato en spec 01-catalogo-jugadores)
+        '401':
+          description: Sin credencial de sesión válida
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /players/{id}:
+    get:
+      tags: [Players]
+      summary: Detalle de jugador — ahora requiere sesión
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Jugador encontrado (contrato en spec 01-catalogo-jugadores)
+        '401':
+          description: Sin credencial de sesión válida
+        '404':
+          description: No existe un jugador con ese id
+
+  /player-stats/{playerId}/matches:
+    get:
+      tags: [PlayerStats]
+      summary: Estadísticas por partido — ahora requiere sesión
+      description: >
+        Lectura de catálogo. Convive en el mismo controller con POST /player-stats/refresh, que
+        es administrativo: por eso los guards se aplican por ruta y no por clase (research #3).
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: playerId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Estadísticas del jugador (contrato en spec 03-ingesta-stats)
+        '401':
+          description: Sin credencial de sesión válida
+
+  /player-stats/refresh:
+    post:
+      tags: [PlayerStats]
+      summary: Dispara la ingesta de estadísticas — ahora requiere clave administrativa
+      security:
+        - adminApiKey: []
+      responses:
+        '200':
+          description: Proceso finalizado (contrato en spec 03-ingesta-stats)
+        '401':
+          description: Clave administrativa ausente o incorrecta. Una sesión de usuario válida no alcanza (FR-011).
+
+  /ingestion/players:
+    post:
+      tags: [Ingestion]
+      summary: Dispara la ingesta del catálogo — ahora requiere clave administrativa
+      security:
+        - adminApiKey: []
+      responses:
+        '200':
+          description: Ingesta finalizada (contrato en spec 02-ingesta-catalogo)
+        '401':
+          description: Clave administrativa ausente o incorrecta
+
+  /team-whoscored-matching/refresh:
+    post:
+      tags: [TeamWhoScoredMatching]
+      summary: Dispara el matching de equipos — ahora requiere clave administrativa
+      security:
+        - adminApiKey: []
+      responses:
+        '200':
+          description: Matching finalizado (contrato en spec 04-team-whoscored-matching)
+        '401':
+          description: Clave administrativa ausente o incorrecta
+
+  /:
+    get:
+      tags: [Health]
+      summary: Health check — permanece público
+      description: >
+        Deliberadamente sin guard: un chequeo de vida que exige credenciales no cumple su
+        función, y la constitución §4 lo exige como pieza de observabilidad.
+      security: []
+      responses:
+        '200':
+          description: La aplicación está viva
