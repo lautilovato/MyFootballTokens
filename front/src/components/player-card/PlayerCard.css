@@ -1,0 +1,614 @@
+@import url('https://fonts.googleapis.com/css2?family=Barlow+Semi+Condensed:wght@500;600;700;800&display=swap');
+
+/*
+ * Todo se mide en cqw (1% del ancho de .pc-root), así la carta escala
+ * proporcionalmente: ponela en una grilla y listo.
+ */
+.pc-root {
+  container-type: inline-size;
+  width: 100%;
+  max-width: var(--pc-max-width, 380px);
+  /* margen para el hexágono y la placa que sobresalen */
+  padding: 5% 4% 8%;
+  box-sizing: border-box;
+
+  --ink: #f4f7ff;
+  --muted: #b7c1d4;
+  --panel: #0a1224;
+  --edge: #5aa9ff;
+  --up: #3dff8a;
+  --down: #ff4d6a;
+
+  font-family: 'Barlow Semi Condensed', 'Arial Narrow', system-ui, sans-serif;
+  color: var(--ink);
+}
+
+.pc-root *,
+.pc-root *::before,
+.pc-root *::after {
+  box-sizing: border-box;
+}
+
+/* ---------- rareza ---------- */
+.pc {
+  --accent-1: #f6dc9a;
+  --accent-2: #a87c34;
+  --pill: linear-gradient(90deg, #c9a15a, #f3e1b0 25%, #e8ecf2 55%, #a9b2c1 80%, #eef1f6);
+}
+.pc[data-rarity='epic'] {
+  --accent-1: #e3b8ff;
+  --accent-2: #7b3fd1;
+  --pill: linear-gradient(90deg, #9b5cf0, #e6c9ff 40%, #b98cff 70%, #f1e4ff);
+}
+.pc[data-rarity='rare'] {
+  --accent-1: #aee4ff;
+  --accent-2: #2f6fd6;
+  --pill: linear-gradient(90deg, #4c8fe8, #cdeaff 45%, #7fb8f5 75%, #e3f3ff);
+}
+.pc[data-rarity='common'] {
+  --accent-1: #e4e9f1;
+  --accent-2: #7d8799;
+  --pill: linear-gradient(90deg, #9aa3b2, #eef1f6 45%, #b7bfcc 75%, #f3f5f8);
+}
+.pc[data-trend='up'] { --trend: var(--up); }
+.pc[data-trend='down'] { --trend: var(--down); }
+
+/* ---------- carta + tilt ---------- */
+.pc {
+  --rx: 0deg;
+  --ry: 0deg;
+  --mx: 50%;
+  --my: 35%;
+  --hyp: 0;
+  --band: 3.4%;
+  --chamfer: 7cqw;
+
+  position: relative;
+  aspect-ratio: 5 / 8;
+  transform: perspective(900px) rotateX(var(--rx)) rotateY(var(--ry));
+  transition: transform 0.5s cubic-bezier(0.2, 0.8, 0.2, 1);
+  will-change: transform;
+  user-select: none;
+  outline: none;
+}
+.pc[data-active='true'] {
+  transition: transform 0.08s linear;
+}
+.pc:focus-visible {
+  outline: 0.6cqw solid var(--edge);
+  outline-offset: 2cqw;
+  border-radius: 4cqw;
+}
+.pc[role='button'] {
+  cursor: pointer;
+}
+
+/* marco metálico con esquinas biseladas; el glow va en el padre porque clip-path lo cortaría */
+.pc__glow {
+  position: absolute;
+  inset: 0;
+  filter: drop-shadow(0 0 1cqw rgba(90, 170, 255, 0.6)) drop-shadow(0 0 4cqw rgba(60, 110, 255, 0.35));
+  transition: filter 0.45s ease-out;
+}
+.pc[data-active='true'] .pc__glow {
+  filter: drop-shadow(0 0 1.2cqw rgba(120, 195, 255, 0.75))
+    drop-shadow(0 0 6cqw color-mix(in srgb, var(--accent-1) 45%, rgba(60, 110, 255, 0.5)));
+}
+.pc__frame,
+.pc__frame::before {
+  position: absolute;
+  clip-path: polygon(
+    var(--chamfer) 0, calc(100% - var(--chamfer)) 0, 100% var(--chamfer),
+    100% calc(100% - var(--chamfer)), calc(100% - var(--chamfer)) 100%,
+    var(--chamfer) 100%, 0 calc(100% - var(--chamfer)), 0 var(--chamfer)
+  );
+}
+.pc__frame {
+  inset: 0;
+  background: linear-gradient(135deg, #8fd0ff, #2b4f9a 28%, #a6d8ff 52%, #22407e 78%, #8fd0ff);
+  background-size: 220% 220%;
+  background-position: calc(100% - var(--mx) * 1.2) calc(100% - var(--my) * 1.2);
+  transition: background-position 0.5s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+.pc[data-active='true'] .pc__frame {
+  transition: background-position 0.08s linear;
+}
+.pc__frame::before {
+  content: '';
+  inset: 0.7cqw;
+  --chamfer: 6.7cqw;
+  background: linear-gradient(165deg, #33466a 0%, #111b31 22%, #0c1426 60%, #1b2946 100%);
+}
+
+/* ---------- panel interior ---------- */
+.pc__panel {
+  position: absolute;
+  inset: 4.6cqw 4.6cqw 6.4cqw;
+  display: flex;
+  flex-direction: column;
+  border: 0.4cqw solid transparent;
+  border-radius: 3cqw;
+  background:
+    linear-gradient(var(--panel), var(--panel)) padding-box,
+    linear-gradient(160deg, var(--accent-1), var(--accent-2) 35%, var(--accent-1) 60%, var(--accent-2)) border-box;
+  overflow: hidden;
+  /* las capas holográficas usan mix-blend-mode: sin esto sangran sobre el marco */
+  isolation: isolate;
+}
+
+.pc__art {
+  position: relative;
+  flex: 0 0 51%;
+  background: radial-gradient(120% 95% at 58% 28%, #d9f2ff 0%, #86bcff 20%, #4461d0 46%, #1b2560 72%, var(--panel) 100%);
+}
+.pc__art::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: 3;
+  background: linear-gradient(to bottom, transparent 58%, rgba(10, 18, 36, 0.75) 88%, var(--panel));
+  pointer-events: none;
+}
+
+.pc__photo {
+  position: absolute;
+  z-index: 2;
+  left: 16%;
+  right: -4%;
+  top: 3%;
+  bottom: -6cqw;
+  width: 88%;
+  height: calc(97% + 6cqw);
+  object-fit: cover;
+  object-position: top center;
+  -webkit-mask-image: linear-gradient(to bottom, #000 65%, transparent 96%);
+  mask-image: linear-gradient(to bottom, #000 65%, transparent 96%);
+  pointer-events: none;
+}
+.pc__photo--empty {
+  object-fit: contain;
+  padding: 6% 8% 0;
+}
+
+/* columna izquierda: bandera / posición / escudo */
+.pc__side {
+  position: absolute;
+  z-index: 4;
+  top: 0;
+  left: 0;
+  width: 24%;
+  height: 80%;
+  background: linear-gradient(to bottom, #6f8fc6, var(--accent-1) 60%, var(--accent-2));
+  clip-path: polygon(0 0, 100% 0, 100% 72%, 0 100%);
+}
+.pc__side-inner {
+  position: absolute;
+  inset: 0 0.4cqw 0 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2.6cqw;
+  padding-top: 3.2cqw;
+  background: linear-gradient(to bottom, #0e1a34, #0a1328 70%);
+  clip-path: polygon(0 0, 100% 0, 100% calc(72% - 0.5cqw), 0 calc(100% - 0.5cqw));
+}
+.pc__flag {
+  font-size: 0; /* oculta el alt si la imagen falla */
+  width: 13cqw;
+  aspect-ratio: 3 / 2;
+  object-fit: cover;
+  border-radius: 0.4cqw;
+  box-shadow: 0 0 0 0.25cqw rgba(255, 255, 255, 0.12);
+}
+.pc__position {
+  font-size: 9cqw;
+  font-weight: 800;
+  line-height: 0.9;
+  letter-spacing: 0.01em;
+  padding-top: 2.2cqw;
+  border-top: 0.25cqw solid rgba(160, 190, 240, 0.25);
+  width: 72%;
+  text-align: center;
+}
+.pc__crest {
+  width: 13cqw;
+  height: 15cqw;
+  object-fit: contain;
+  filter: drop-shadow(0 0 1.2cqw rgba(90, 200, 255, 0.55));
+}
+
+/* nombre */
+.pc__identity {
+  position: relative;
+  z-index: 5;
+  margin-top: -9cqw;
+  padding: 2.2cqw 3cqw 0;
+  text-align: center;
+}
+.pc__identity::before {
+  content: '';
+  position: absolute;
+  left: 8%;
+  right: 8%;
+  top: 0;
+  height: 0.35cqw;
+  background: linear-gradient(90deg, transparent, #62c4ff 30%, #b7e6ff 50%, #62c4ff 70%, transparent);
+  box-shadow: 0 0 2cqw 0.3cqw rgba(98, 196, 255, 0.55);
+}
+.pc__name {
+  margin: 0;
+  font-size: calc(11cqw * var(--name-scale, 1));
+  font-weight: 800;
+  line-height: 11cqw; /* fijo: el resto de la carta no salta con nombres largos */
+  text-transform: uppercase;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  text-shadow: 0 0.4cqw 1.6cqw rgba(0, 0, 0, 0.7);
+}
+.pc__club {
+  margin: 0.6cqw 0 0;
+  font-size: 4.5cqw;
+  font-weight: 600;
+  line-height: 1.1;
+  color: var(--muted);
+  text-transform: uppercase;
+}
+
+.pc__rule {
+  flex: 0 0 auto;
+  height: 0.3cqw;
+  margin: 2.6cqw 4cqw 2.8cqw;
+  background: linear-gradient(90deg, transparent, rgba(90, 170, 255, 0.9), transparent);
+  box-shadow: 0 0 1.4cqw rgba(90, 170, 255, 0.5);
+}
+
+/* mercado */
+.pc__market {
+  display: grid;
+  grid-template-columns: minmax(0, 1.3fr) minmax(0, 1fr);
+  column-gap: 2cqw;
+  padding: 0 4cqw;
+}
+.pc__label {
+  margin: 0 0 1.4cqw;
+  font-size: 3.7cqw;
+  font-weight: 700;
+  line-height: 1;
+  color: #cbd3e3;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+.pc__rarity {
+  position: relative;
+  display: inline-block;
+  padding: 1cqw 6.6cqw 0.9cqw 2.2cqw;
+  font-size: 4cqw;
+  font-weight: 800;
+  line-height: 1.1;
+  color: #10131a;
+  text-transform: uppercase;
+  white-space: nowrap;
+  background: var(--pill);
+  border-radius: 1.2cqw 0 0 1.2cqw;
+  clip-path: polygon(0 0, calc(100% - 3cqw) 0, 100% 50%, calc(100% - 3cqw) 100%, 0 100%);
+}
+.pc__rarity::after {
+  content: '';
+  position: absolute;
+  right: 3cqw;
+  top: 50%;
+  width: 1.2cqw;
+  aspect-ratio: 1;
+  border-radius: 50%;
+  background: #2a2f3a;
+  transform: translateY(-50%);
+}
+.pc__minted {
+  margin: 1.4cqw 0 0;
+  white-space: nowrap;
+  font-size: 3.8cqw;
+  font-weight: 700;
+  color: #bfc8d8;
+  text-transform: uppercase;
+}
+.pc__spark {
+  display: block;
+  width: 100%;
+  aspect-ratio: 100 / 32;
+  margin-top: 1.6cqw;
+  overflow: visible;
+  color: var(--trend);
+  border-left: 0.2cqw solid rgba(160, 180, 220, 0.25);
+  border-top: 0.2cqw solid rgba(160, 180, 220, 0.12);
+  filter: drop-shadow(0 0 0.8cqw color-mix(in srgb, var(--trend) 70%, transparent));
+}
+
+.pc__price {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  text-align: right;
+}
+.pc__amount {
+  font-size: calc(15cqw * var(--price-scale, 1));
+  font-weight: 800;
+  line-height: 0.95;
+  letter-spacing: -0.01em;
+  color: var(--trend);
+  text-shadow: 0 0 2.4cqw color-mix(in srgb, var(--trend) 55%, transparent);
+}
+.pc__change {
+  margin-top: 1.6cqw;
+  font-size: 6.4cqw;
+  font-weight: 800;
+  line-height: 1;
+  color: var(--trend);
+  white-space: nowrap;
+}
+.pc__change > span {
+  font-size: 0.8em;
+}
+.pc__currency {
+  margin-top: 0.8cqw;
+  font-size: 4.4cqw;
+  font-weight: 700;
+  color: var(--muted);
+}
+
+/* stats */
+.pc__stats {
+  display: flex;
+  justify-content: center;
+  margin: auto 4cqw 0;
+  padding: 2.2cqw 0 6cqw;
+  border-top: 0.2cqw solid rgba(110, 160, 240, 0.25);
+}
+.pc__stat {
+  display: flex;
+  gap: 1cqw;
+  padding: 0 4.2cqw;
+  font-size: 6.4cqw;
+  font-weight: 800;
+  line-height: 1;
+}
+.pc__stat + .pc__stat {
+  border-left: 0.2cqw solid rgba(120, 170, 255, 0.35);
+}
+.pc__stat dt {
+  color: #aeb8cc;
+}
+.pc__stat dd {
+  margin: 0;
+}
+
+/* ---------- capas holográficas ----------
+ * Regla de oro del foil sobre un panel oscuro: componer cada capa contra negro
+ * (background-color: #000 + blends internos) y sacarla con `screen`. Screen
+ * sobre negro es no-op, así que sólo se ve lo que la capa ilumina: no ensucia
+ * las zonas oscuras ni quema la foto. `color-dodge` hacía exactamente lo
+ * contrario: invisible sobre el panel, reventado sobre el arte.
+ *
+ * El "charco de luz" (radial en var(--mx)/var(--my), multiply) es el que manda:
+ * el arcoíris existe en toda la carta pero sólo se enciende donde mira el
+ * puntero, que es lo que hace que se lea como lámina y no como calcomanía.
+ */
+
+/* deriva en reposo: animamos un número, no background-position, así entrar y
+ * salir con el puntero no produce saltos */
+@property --pc-drift {
+  syntax: '<number>';
+  inherits: false;
+  initial-value: 0;
+}
+
+.pc__holo,
+.pc__sparkle,
+.pc__glare {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  transition: opacity 0.55s ease-out;
+}
+.pc[data-active='true'] .pc__holo,
+.pc[data-active='true'] .pc__sparkle,
+.pc[data-active='true'] .pc__glare {
+  transition-duration: 0.22s;
+}
+
+/* el texto de la mitad inferior tiene que seguir siendo legible */
+.pc__holo,
+.pc__sparkle {
+  background-color: #000;
+  mix-blend-mode: screen;
+  -webkit-mask-image: linear-gradient(to bottom, #000 0 46%, rgba(0, 0, 0, 0.4) 64%, rgba(0, 0, 0, 0.16) 100%);
+  mask-image: linear-gradient(to bottom, #000 0 46%, rgba(0, 0, 0, 0.4) 64%, rgba(0, 0, 0, 0.16) 100%);
+}
+
+/* lámina: arcoíris diagonal + veta fina, recortados por el charco de luz */
+.pc__holo {
+  z-index: 7;
+  background-image:
+    radial-gradient(
+      farthest-corner circle at var(--mx) var(--my),
+      #ffffff 0%, #cfcfcf 30%, #5a5a5a 68%, #141414 100%
+    ),
+    repeating-linear-gradient(
+      101deg,
+      rgba(255, 255, 255, 0) 0 1.3%,
+      rgba(255, 255, 255, 0.24) 1.8%,
+      rgba(255, 255, 255, 0) 2.3% 4.4%
+    ),
+    linear-gradient(
+      101deg,
+      #000 6%, #ff5f8d 20%, #ffc860 32%, #7dffae 44%,
+      #5fd0ff 56%, #b18cff 68%, #ff6fd8 80%, #000 94%
+    );
+  background-blend-mode: multiply, screen, normal;
+  background-size: 100% 100%, 200% 200%, 240% 100%;
+  background-position:
+    0 0,
+    calc(var(--mx) * 0.6 + var(--pc-drift, 0) * 20%) calc(var(--my) * 0.6 + var(--pc-drift, 0) * 12%),
+    calc(100% - var(--mx) * 1.35 - var(--pc-drift, 0) * 24%) calc(var(--my) * 0.5);
+  filter: saturate(calc(1 + var(--hyp) * 0.4)) blur(0.1cqw);
+  opacity: 0.2;
+  animation: pc-drift 17s ease-in-out infinite alternate;
+}
+
+/* purpurina: sólo brilla en un charco chico alrededor del puntero */
+.pc__sparkle {
+  z-index: 8;
+  background-image:
+    radial-gradient(
+      farthest-corner circle at var(--mx) var(--my),
+      #ffffff 0%, #9a9a9a 20%, #242424 50%, #000 72%
+    ),
+    radial-gradient(circle at 50% 50%, rgba(255, 255, 255, 0.95) 0 0.1cqw, transparent 0.44cqw),
+    radial-gradient(circle at 50% 50%, rgba(170, 235, 255, 0.9) 0 0.15cqw, transparent 0.58cqw),
+    radial-gradient(circle at 50% 50%, rgba(255, 190, 245, 0.85) 0 0.08cqw, transparent 0.34cqw);
+  background-blend-mode: multiply, screen, screen, normal;
+  background-size: 100% 100%, 5.1cqw 5.1cqw, 8.6cqw 8.6cqw, 3.4cqw 3.4cqw;
+  background-position:
+    0 0,
+    calc(var(--mx) * 0.3 + var(--pc-drift, 0) * 8%) calc(var(--my) * 0.3),
+    calc(var(--mx) * -0.42) calc(var(--my) * 0.42 + var(--pc-drift, 0) * 6%),
+    calc(var(--mx) * 0.55) calc(var(--my) * -0.3);
+  opacity: 0.1;
+  animation: pc-drift 11s ease-in-out infinite alternate;
+}
+
+/* reflejo especular que sigue al puntero */
+.pc__glare {
+  z-index: 9;
+  background-image: radial-gradient(
+    farthest-corner circle at var(--mx) var(--my),
+    rgba(255, 255, 255, 0.3) 0%,
+    rgba(255, 255, 255, 0.09) 18%,
+    rgba(255, 255, 255, 0) 46%
+  );
+  mix-blend-mode: screen;
+  opacity: 0;
+}
+
+.pc[data-active='true'] .pc__holo {
+  opacity: 0.48;
+}
+.pc[data-active='true'] .pc__sparkle {
+  opacity: 0.4;
+}
+.pc[data-active='true'] .pc__glare {
+  opacity: 1;
+}
+
+@keyframes pc-drift {
+  from { --pc-drift: 0; }
+  to { --pc-drift: 1; }
+}
+
+/* ---------- hexágono OVR ---------- */
+.pc__ovr {
+  position: absolute;
+  z-index: 10;
+  top: -3cqw;
+  right: -2.5cqw;
+  width: 29cqw;
+  filter: drop-shadow(0 0 1.4cqw rgba(110, 190, 255, 0.7));
+}
+.pc__ovr-ring,
+.pc__ovr-gold,
+.pc__ovr-core {
+  clip-path: polygon(50% 0, 100% 25%, 100% 75%, 50% 100%, 0 75%, 0 25%);
+}
+.pc__ovr-ring {
+  aspect-ratio: 0.9;
+  padding: 1.3cqw;
+  background: linear-gradient(160deg, #d8f0ff, #4f86d8 40%, #a9d6ff 70%, #3a5ea8);
+}
+.pc__ovr-gold {
+  height: 100%;
+  padding: 1cqw;
+  background: linear-gradient(160deg, var(--accent-1), var(--accent-2) 45%, var(--accent-1) 70%, var(--accent-2));
+}
+.pc__ovr-core {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  background: radial-gradient(90% 80% at 50% 20%, #3a5690, #16244a 55%, #0c1530);
+}
+.pc__ovr-value {
+  font-size: 15cqw;
+  font-weight: 800;
+  line-height: 0.85;
+  letter-spacing: -0.02em;
+  text-shadow: 0 0.5cqw 1.5cqw rgba(0, 0, 0, 0.5);
+}
+.pc__ovr-label {
+  margin-top: 0.8cqw;
+  font-size: 4.4cqw;
+  font-weight: 700;
+  color: #cfd7e6;
+}
+
+/* ---------- placa inferior ---------- */
+.pc__plaque {
+  position: absolute;
+  z-index: 10;
+  left: 50%;
+  bottom: -4.5cqw;
+  width: 50cqw;
+  height: 14cqw;
+  transform: translateX(-50%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding-top: 2.6cqw;
+  gap: 0.6cqw;
+  font-size: 3.8cqw;
+  font-weight: 700;
+  line-height: 1;
+  color: #c3ccdd;
+  text-transform: uppercase;
+  white-space: nowrap;
+  background: linear-gradient(90deg, var(--accent-2), var(--accent-1) 20%, #6f8fc6 50%, var(--accent-1) 80%, var(--accent-2));
+  clip-path: polygon(0 0, 100% 0, 86% 58%, 50% 100%, 14% 58%);
+}
+.pc__plaque::before {
+  content: '';
+  position: absolute;
+  inset: 0.5cqw 0.7cqw 0.8cqw;
+  z-index: -1;
+  background: linear-gradient(to bottom, #1c2a48, #0c1428);
+  clip-path: polygon(0 0, 100% 0, 86% 58%, 50% 100%, 14% 58%);
+}
+.pc__plaque > * {
+  position: relative;
+}
+.pc__plaque {
+  isolation: isolate;
+}
+.pc__chain {
+  width: 4.6cqw;
+  color: #7f8ca6;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pc,
+  .pc__frame,
+  .pc__glow,
+  .pc__holo,
+  .pc__sparkle,
+  .pc__glare {
+    transition: none;
+  }
+  .pc {
+    transform: none;
+  }
+  /* el foil se queda quieto, pero no lo apagamos: sigue siendo una lámina */
+  .pc__holo,
+  .pc__sparkle {
+    animation: none;
+  }
+}
