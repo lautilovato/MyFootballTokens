@@ -3,6 +3,7 @@ import { FootballDataAdapter } from '../../adapters/football-data/football-data.
 import { PinoLoggerService } from '../../shared/logging/pino-logger.service';
 import { IngestionResultDto } from './dto/ingestion-result.dto';
 import { IngestionRepository } from './ingestion.repository';
+import { PlayerService } from '../player/player.service';
 
 const LEAGUE_CODES = ['PL', 'BL1', 'PD', 'SA', 'FL1'];
 
@@ -12,6 +13,7 @@ export class IngestionService {
     private readonly adapter: FootballDataAdapter,
     private readonly repository: IngestionRepository,
     private readonly logger: PinoLoggerService,
+    private readonly playerService: PlayerService,
   ) {}
 
   /** Orquesta liga -> equipos -> planteles; una falla puntual no aborta el resto (User Story 3). */
@@ -51,6 +53,10 @@ export class IngestionService {
         });
       }
     }
+
+    // El catálogo cambió: sin esto la home seguiría sirviendo la versión cacheada hasta
+    // que venza el TTL, mostrando jugadores que ya no son los recién ingeridos (research #8).
+    await this.playerService.invalidateListCache();
 
     const result: IngestionResultDto = { leagues: LEAGUE_CODES.length, teams, players };
     this.logger.event('IngestionService', 'ingesta finalizada', { ...result });

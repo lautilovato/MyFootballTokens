@@ -396,6 +396,17 @@
         },
         {
           "columnNames": [
+            "immutable_unaccent(full_name::text)"
+          ],
+          "composite": false,
+          "constraint": false,
+          "keyName": "player_full_name_unaccent_index",
+          "primary": false,
+          "unique": false,
+          "expression": "CREATE INDEX player_full_name_unaccent_index ON public.player USING btree (immutable_unaccent((full_name)::text))"
+        },
+        {
+          "columnNames": [
             "id"
           ],
           "composite": false,
@@ -942,6 +953,17 @@
           "keyName": "player_season_stats_player_id_season_unique",
           "primary": false,
           "unique": true
+        },
+        {
+          "columnNames": [
+            "season",
+            "rating"
+          ],
+          "composite": true,
+          "constraint": false,
+          "keyName": "player_season_stats_season_rating_index",
+          "primary": false,
+          "unique": false
         }
       ],
       "checks": [],

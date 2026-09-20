@@ -6,6 +6,7 @@ import { PlayerMatchStatsResponseDto, MatchStatsDto } from './dto/player-match-s
 import { PlayerStatsRefreshResultDto } from './dto/player-stats-refresh-result.dto';
 import { findBestMatch, jaroWinkler, normalizeName } from '../../shared/matching/name-matcher';
 import { PlayerStatsRepository } from './player-stats.repository';
+import { PlayerService } from '../player/player.service';
 
 @Injectable()
 export class PlayerStatsService {
@@ -13,6 +14,7 @@ export class PlayerStatsService {
     private readonly adapter: WhoScoredAdapter,
     private readonly repository: PlayerStatsRepository,
     private readonly logger: PinoLoggerService,
+    private readonly playerService: PlayerService,
   ) {}
 
   /**
@@ -79,6 +81,10 @@ export class PlayerStatsService {
         });
       }
     }
+
+    // Cambiaron los ratings, y de ellos dependen el OVR y la rareza de cada carta: la
+    // home tiene que reflejarlo sin esperar el TTL (research #8).
+    await this.playerService.invalidateListCache();
 
     const result: PlayerStatsRefreshResultDto = {
       teamsProcessed,

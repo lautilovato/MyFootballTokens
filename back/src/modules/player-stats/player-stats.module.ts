@@ -1,12 +1,13 @@
 import { Module } from '@nestjs/common';
 import { WhoScoredModule } from '../../adapters/who-scored/who-scored.module';
 import { AuthSharedModule } from '../../shared/auth/auth-shared.module';
+import { PlayerModule } from '../player/player.module';
 import { PlayerStatsController } from './player-stats.controller';
 import { PlayerStatsRepository } from './player-stats.repository';
 import { PlayerStatsService } from './player-stats.service';
 
 @Module({
-  imports: [WhoScoredModule, AuthSharedModule],
+  imports: [WhoScoredModule, AuthSharedModule, PlayerModule],
   controllers: [PlayerStatsController],
   providers: [PlayerStatsService, PlayerStatsRepository],
 })
