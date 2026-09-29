@@ -349,15 +349,18 @@ describe('Players / Leagues (e2e)', () => {
       ['minOvr=120', 'OVR fuera de rango'],
       ['nope=1', 'parámetro no reconocido'],
     ])('rechaza %s (%s) con 400', async (query) => {
-      await get(`/players?${query}`).expect(400);
+      const res = await get(`/players?${query}`);
+      expect(res.status).toBe(400);
     });
 
     it('el id con formato inválido se rechaza con 400', async () => {
-      await get('/players/no-es-uuid').expect(400);
+      const res = await get('/players/no-es-uuid');
+      expect(res.status).toBe(400);
     });
 
     it('un id inexistente devuelve 404', async () => {
-      await get('/players/00000000-0000-4000-8000-000000000000').expect(404);
+      const res = await get('/players/00000000-0000-4000-8000-000000000000');
+      expect(res.status).toBe(404);
     });
   });
 
@@ -437,20 +440,20 @@ describe('Players / Leagues (e2e)', () => {
 
   describe('E12 — protección de los endpoints (FR-017)', () => {
     it.each(['/players', '/leagues'])('%s responde 401 sin credencial', async (path) => {
-      await request(app.getHttpServer()).get(path).expect(401);
+      const res = await request(app.getHttpServer()).get(path);
+      expect(res.status).toBe(401);
     });
 
     it('el detalle responde 401 sin credencial', async () => {
-      await request(app.getHttpServer())
-        .get(`/players/${idsByName.get('Aaron Legend')}`)
-        .expect(401);
+      const res = await request(app.getHttpServer()).get(`/players/${idsByName.get('Aaron Legend')}`);
+      expect(res.status).toBe(401);
     });
 
     it('una credencial inválida también se rechaza', async () => {
-      await request(app.getHttpServer())
+      const res = await request(app.getHttpServer())
         .get('/players')
-        .set('Authorization', 'Bearer no-es-un-token')
-        .expect(401);
+        .set('Authorization', 'Bearer no-es-un-token');
+      expect(res.status).toBe(401);
     });
   });
 });
