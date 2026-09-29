@@ -147,6 +147,9 @@ export class PlayerDetailDto extends PlayerCardDto {
   @ApiProperty({ type: Number, nullable: true, example: 195, description: 'Centímetros' })
   height!: number | null;
 
+  @ApiProperty({ type: Number, nullable: true, example: 28, description: 'Partidos jugados en la temporada' })
+  matchesPlayed!: number | null;
+
   @ApiProperty({ type: Number, nullable: true })
   shotsPerGame!: number | null;
 
@@ -171,6 +174,7 @@ export class PlayerDetailDto extends PlayerCardDto {
     dto.league = player.team.league.name;
     dto.season = stats?.season ?? null;
     dto.height = player.height ?? null;
+    dto.matchesPlayed = stats?.matchesPlayed ?? null;
     dto.shotsPerGame = toNumberOrNull(stats?.shotsPerGame);
     dto.keyPasses = toNumberOrNull(stats?.keyPasses);
     dto.dribbles = toNumberOrNull(stats?.dribbles);

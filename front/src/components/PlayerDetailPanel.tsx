@@ -7,15 +7,18 @@ interface PlayerDetailPanelProps {
   onClose: () => void;
 }
 
-/** Las métricas que la spec exige en el panel (FR-012), en el orden en que se muestran. */
+/**
+ * Métricas de temporada del panel (FR-012), en el orden en que se muestran. Tiros, pases
+ * clave, regates y entradas llegan como promedio por partido desde WhoScored.
+ */
 const METRICS: { label: string; key: keyof ApiPlayerDetail; suffix?: string }[] = [
+  { label: 'Partidos jugados', key: 'matchesPlayed' },
   { label: 'Goles', key: 'goals' },
   { label: 'Asistencias', key: 'assists' },
-  { label: 'Altura', key: 'height', suffix: ' cm' },
   { label: 'Tiros por partido', key: 'shotsPerGame' },
-  { label: 'Pases clave', key: 'keyPasses' },
-  { label: 'Regates', key: 'dribbles' },
-  { label: 'Entradas', key: 'tackles' },
+  { label: 'Pases clave por partido', key: 'keyPasses' },
+  { label: 'Regates por partido', key: 'dribbles' },
+  { label: 'Entradas por partido', key: 'tackles' },
 ];
 
 /** Un valor nulo es "sin dato", que no es lo mismo que un cero real (FR-015). */
@@ -55,8 +58,16 @@ function MockChart({ history }: { history: number[] }) {
  */
 export function PlayerDetailPanel({ player, loading, error, onClose }: PlayerDetailPanelProps) {
   return (
+    // Siempre a la vista, sin importar hasta dónde se scrolleó la grilla: en desktop queda
+    // fijo (sticky) en su columna; en mobile, donde la columna quedaría debajo de toda la
+    // grilla, se muestra como hoja fija al pie de la pantalla. En ambos casos scrollea solo.
     <aside
-      className="w-full shrink-0 border-l border-white/10 bg-navy-card/60 p-5 md:w-80"
+      className={
+        'fixed inset-x-0 bottom-0 z-40 max-h-[80vh] w-full shrink-0 overflow-y-auto ' +
+        'rounded-t-lg border-t border-white/10 bg-navy-card p-5 shadow-2xl ' +
+        'md:sticky md:inset-x-auto md:bottom-auto md:top-6 md:z-auto md:max-h-[calc(100vh-3rem)] ' +
+        'md:w-80 md:self-start md:rounded-none md:border-l md:border-t-0 md:bg-navy-card/60 md:shadow-none'
+      }
       aria-label="Detalle del jugador"
     >
       <header className="mb-4 flex items-center justify-between">
