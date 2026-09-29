@@ -11,6 +11,7 @@ import type { Errors } from './validation';
 
 export default function LoginPage() {
   const { login } = useAuth();
+  const navigate = useNavigate();
   const [values, setValues] = useState({ email: '', password: '' });
   const [errors, setErrors] = useState<Errors<typeof values>>({});
   const [formError, setFormError] = useState('');
