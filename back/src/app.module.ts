@@ -20,15 +20,19 @@ import { TeamWhoScoredMatchingModule } from './modules/team-whoscored-matching/t
 
 export const { ObserveModule, ObserveInstrument } = createObserveModule();
 
+// Telemetría de https://observe.nestjs.com (tracing, métricas, errores). Solo se activa con
+// credenciales reales: con las de ejemplo el agente recibía 401 en cada envío y lo logueaba
+// como error. Sin OBSERVE_APP_KEY / OBSERVE_APP_SECRET la app arranca sin telemetría.
+const observeAppKey = process.env.OBSERVE_APP_KEY;
+const observeAppSecret = process.env.OBSERVE_APP_SECRET;
+const observeImports =
+  observeAppKey && observeAppSecret
+    ? [ObserveModule.forRoot({ appKey: observeAppKey, appSecret: observeAppSecret, serviceId: 'back' })]
+    : [];
+
 @Module({
   imports: [
-    // Distributed tracing, auto-correlated logs, request/job metrics, error
-    // telemetry, alarms, and more — out of the box. Sign up at https://observe.nestjs.com
-    ObserveModule.forRoot({
-      appKey: 'YOUR_APP_KEY',
-      appSecret: 'YOUR_APP_SECRET',
-      serviceId: 'back',
-    }),
+    ...observeImports,
     LoggingModule,
     DatabaseModule,
     // Limite de intentos para /auth (FR-013, research #7). Almacenamiento en

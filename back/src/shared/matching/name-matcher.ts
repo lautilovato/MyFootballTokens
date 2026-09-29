@@ -34,11 +34,16 @@ const NON_DECOMPOSING_LETTERS: Record<string, string> = {
   ß: 'ss',
   ł: 'l',
   Ł: 'l',
+  // Distinta de la ð islandesa de arriba: es la de "Đurić", que WhoScored escribe "Djuric".
+  đ: 'dj',
+  Đ: 'dj',
+  // "Yıldız": la i sin punto turca.
+  ı: 'i',
 };
 
 export function normalizeName(name: string): string {
   const withMappedLetters = name.replace(
-    /[øØæÆœŒðÐþÞßłŁ]/g,
+    /[øØæÆœŒðÐþÞßłŁđĐı]/g,
     (ch) => NON_DECOMPOSING_LETTERS[ch] ?? ch,
   );
   return withMappedLetters
@@ -94,6 +99,41 @@ export function jaroWinkler(a: string, b: string): number {
   return jaro + prefix * 0.1 * (1 - jaro);
 }
 
+const SURNAME_TOKEN_SIMILARITY = 0.9;
+
+/**
+ * Filtro para jugadores (no para equipos): el último término de alguno de los dos nombres
+ * tiene que aparecer, con tolerancia, entre los términos del otro. Jaro-Winkler premia
+ * mucho el prefijo común, así que sin esto "Nick Woltemade" matchea con "Nick Pope" solo
+ * por compartir el nombre de pila. Cubre también nombres de una palabra ("Reinildo") y
+ * nombres completos más largos ("Noel Aseko" vs "Noel Aseko Nkili").
+ *
+ * Recibe los nombres crudos (sin normalizar) para poder cortar también por guion:
+ * `normalizeName` los borra y pegaría "Claude-Maurice" en un solo término.
+ */
+export function sharesSurname(nameA: string, nameB: string): boolean {
+  const tokensA = surnameTokens(nameA);
+  const tokensB = surnameTokens(nameB);
+  const lastIn = (last: string | undefined, tokens: string[]) =>
+    last !== undefined && tokens.some((t) => jaroWinkler(last, t) >= SURNAME_TOKEN_SIMILARITY);
+  return (
+    lastIn(tokensA.at(-1), withJoinedPairs(tokensB)) ||
+    lastIn(tokensB.at(-1), withJoinedPairs(tokensA))
+  );
+}
+
+function surnameTokens(name: string): string[] {
+  return name
+    .split(/[\s-]+/)
+    .map(normalizeName)
+    .filter(Boolean);
+}
+
+/** Suma cada par de términos consecutivos unidos: "del prato" también ofrece "delprato". */
+function withJoinedPairs(tokens: string[]): string[] {
+  return [...tokens, ...tokens.slice(1).map((t, i) => tokens[i] + t)];
+}
+
 /**
  * Devuelve el mejor candidato por encima de `threshold`, o `null` si no hay ninguno o si
  * hay un empate entre los dos mejores (spec.md §4.2) que no se puede desempatar de forma
@@ -105,10 +145,13 @@ export function findBestMatch(
   whoScoredName: string,
   candidates: MatchCandidate[],
   threshold: number,
+  /** Filtro extra sobre los nombres crudos: descarta candidatos antes de rankear. */
+  accept?: (whoScoredName: string, candidateName: string) => boolean,
 ): MatchResult | null {
   const normalizedTarget = normalizeName(whoScoredName);
 
   const scored = candidates
+    .filter((candidate) => !accept || accept(whoScoredName, candidate.fullName))
     .map((candidate) => ({
       candidate,
       similarity: jaroWinkler(normalizedTarget, normalizeName(candidate.fullName)),

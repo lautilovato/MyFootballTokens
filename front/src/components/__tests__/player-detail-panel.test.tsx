@@ -26,6 +26,7 @@ const PLAYER: ApiPlayerDetail = {
   league: 'Premier League',
   season: '2025-2026',
   height: 195,
+  matchesPlayed: 31,
   shotsPerGame: 4.2,
   keyPasses: 1.1,
   dribbles: 0.9,
@@ -54,23 +55,30 @@ afterEach(() => {
 });
 
 describe('PlayerDetailPanel', () => {
-  it('muestra las siete métricas que exige la spec (FR-012)', () => {
+  it('muestra las siete métricas de temporada en orden (FR-012)', () => {
     render(<PlayerDetailPanel player={PLAYER} loading={false} error={null} onClose={() => {}} />);
 
-    const text = container.textContent ?? '';
-    for (const label of [
+    const labels = [...container.querySelectorAll('dt')].map((dt) => dt.textContent);
+    expect(labels.slice(0, 7)).toEqual([
+      'Partidos jugados',
       'Goles',
       'Asistencias',
-      'Altura',
       'Tiros por partido',
-      'Pases clave',
-      'Regates',
-      'Entradas',
-    ]) {
-      expect(text).toContain(label);
-    }
+      'Pases clave por partido',
+      'Regates por partido',
+      'Entradas por partido',
+    ]);
+
+    const text = container.textContent ?? '';
+    expect(text).toContain('31');
     expect(text).toContain('29');
-    expect(text).toContain('195 cm');
+  });
+
+  it('no muestra la altura entre las métricas de temporada', () => {
+    render(<PlayerDetailPanel player={PLAYER} loading={false} error={null} onClose={() => {}} />);
+    const text = container.textContent ?? '';
+    expect(text).not.toContain('Altura');
+    expect(text).not.toContain('195 cm');
   });
 
   it('muestra la liga y el club (FR-013)', () => {
@@ -93,6 +101,7 @@ describe('PlayerDetailPanel', () => {
       assists: null,
       season: null,
       rating: null,
+      matchesPlayed: null,
       shotsPerGame: null,
       keyPasses: null,
       dribbles: null,

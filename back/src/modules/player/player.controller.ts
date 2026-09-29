@@ -18,7 +18,7 @@ export class PlayerController {
   @ApiOperation({
     summary: 'Listado paginado y filtrado de jugadores para la grilla del mercado',
     description:
-      'Todos los filtros son opcionales y se combinan con AND. Los parámetros de valores múltiples se envían repitiendo la clave: ?league=Premier League&league=La Liga',
+      'Solo incluye jugadores con estadísticas de la temporada vigente. Todos los filtros son opcionales y se combinan con AND. Los parámetros de valores múltiples se envían repitiendo la clave: ?league=Premier League&league=LaLiga',
   })
   @ApiQuery({ name: 'league', required: false, isArray: true, type: String, example: 'Premier League' })
   @ApiQuery({ name: 'team', required: false, isArray: true, type: String, example: 'Manchester City' })
@@ -26,13 +26,7 @@ export class PlayerController {
   @ApiQuery({ name: 'rarity', required: false, isArray: true, enum: RARITIES })
   @ApiQuery({ name: 'minValue', required: false, type: Number, example: 100 })
   @ApiQuery({ name: 'maxValue', required: false, type: Number, example: 10000 })
-  @ApiQuery({
-    name: 'minOvr',
-    required: false,
-    type: Number,
-    example: 70,
-    description: 'Excluye a los jugadores sin estadísticas de temporada: no tienen OVR que comparar.',
-  })
+  @ApiQuery({ name: 'minOvr', required: false, type: Number, example: 70 })
   @ApiQuery({ name: 'maxOvr', required: false, type: Number, example: 99 })
   @ApiQuery({
     name: 'search',
