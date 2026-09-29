@@ -31,14 +31,14 @@ export default function LoginPage() {
     } catch {
       // Mensaje generico: el backend no distingue email inexistente de
       // contrasena incorrecta, y el cliente tampoco debe hacerlo (FR-008).
-      setFormError('Credenciales invalidas');
+      setFormError('Credenciales inválidas');
     } finally {
       setSubmitting(false);
     }
   }
 
   return (
-    <AuthLayout title="Iniciar sesion">
+    <AuthLayout title="Iniciar sesión">
       <form onSubmit={onSubmit} noValidate className="flex flex-col gap-5">
         <Input
           label="Email"
@@ -49,7 +49,7 @@ export default function LoginPage() {
           onChange={(e) => setValues({ ...values, email: e.target.value })}
         />
         <Input
-          label="Contrasena"
+          label="Contraseña"
           name="password"
           type="password"
           value={values.password}
@@ -61,7 +61,7 @@ export default function LoginPage() {
           {submitting ? 'Entrando...' : 'Entrar'}
         </Button>
         <p className="text-center text-sm text-slate-400">
-          No tenes cuenta?{' '}
+          ¿No tenés cuenta?{' '}
           <Link to="/register" className="text-neon-blue hover:underline">
             Registrate
           </Link>

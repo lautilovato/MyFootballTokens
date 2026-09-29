@@ -8,7 +8,7 @@ const LABELS = {
   minted: 'Minted',
   club: 'Club',
   ovr: 'OVR',
-  footer: 'NFT collectible',
+  footer: 'MFT collectible',
   rarity: {
     common: 'Common',
     rare: 'Rare',
