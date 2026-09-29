@@ -74,4 +74,9 @@ async function bootstrap() {
 
   await app.listen(process.env.PORT ?? 3000);
 }
-bootstrap();
+
+// Si el arranque falla, el logger de la app puede no existir todavía: se usa la consola.
+bootstrap().catch((error: unknown) => {
+  console.error('La aplicación no pudo arrancar', error);
+  process.exit(1);
+});

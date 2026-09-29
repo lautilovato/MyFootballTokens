@@ -1,3 +1,4 @@
+import { randomUUID } from 'node:crypto';
 import { INestApplication } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import { EntityManager } from '@mikro-orm/postgresql';
@@ -122,7 +123,7 @@ describe('PlayerStats (e2e)', () => {
   }
 
   async function seedTeamWithPlayer(overrides: { externalWhoScoredId?: string | null } = {}) {
-    const league = em.create(League, { name: `League ${Date.now()}-${Math.random()}`, country: 'Testland' });
+    const league = em.create(League, { name: `League ${randomUUID()}`, country: 'Testland' });
     const team = em.create(Team, {
       name: 'Fixture Team',
       externalWhoScoredId: overrides.externalWhoScoredId ?? 'team-1',

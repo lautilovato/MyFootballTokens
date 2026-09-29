@@ -7,6 +7,7 @@ import {
 } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import * as bcrypt from 'bcrypt';
+import { randomBytes } from 'node:crypto';
 import { User } from '../../infrastructure/database/entities/user.entity';
 import { INVALID_CREDENTIALS_MESSAGE } from '../../shared/auth/auth.constants';
 import { AuthRepository, normalizeEmail } from './auth.repository';
@@ -22,8 +23,11 @@ const BCRYPT_COST = 10;
  * Iguala el tiempo de los dos caminos de fallo: sin esto, "email inexistente"
  * responde perceptiblemente más rápido y esa diferencia es el oráculo que
  * SC-006 intenta cerrar (research #8).
+ *
+ * Se genera al arrancar a partir de bytes aleatorios en vez de estar escrito en el
+ * código: no hay hash versionado que filtrar y el costo queda atado a BCRYPT_COST.
  */
-const DUMMY_HASH = '$2b$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy';
+const DUMMY_HASH = bcrypt.hashSync(randomBytes(32).toString('hex'), BCRYPT_COST);
 
 @Injectable()
 export class AuthService {

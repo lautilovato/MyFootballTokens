@@ -1,5 +1,7 @@
 /** Validacion previa al envio: ninguna peticion sale con el formulario invalido (FR-017). */
-export const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+// Las etiquetas del dominio excluyen el punto: así cada "." tiene un único lugar posible
+// y la evaluación es lineal, sin backtracking ante entradas largas que no matchean.
+export const EMAIL_PATTERN = /^[^\s@]+@[^\s@.]+(?:\.[^\s@.]+)+$/;
 
 export interface RegisterFields {
   email: string;
