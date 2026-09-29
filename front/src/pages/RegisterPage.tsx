@@ -27,7 +27,7 @@ export default function RegisterPage() {
     setFormError('');
     try {
       await register(values.email, values.username, values.password);
-      navigate('/');
+      void navigate('/');
     } catch (error: unknown) {
       const status = (error as { response?: { status?: number } })?.response?.status;
       setFormError(

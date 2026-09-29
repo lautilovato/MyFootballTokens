@@ -11,7 +11,6 @@ import type { Errors } from './validation';
 
 export default function LoginPage() {
   const { login } = useAuth();
-  const navigate = useNavigate();
   const [values, setValues] = useState({ email: '', password: '' });
   const [errors, setErrors] = useState<Errors<typeof values>>({});
   const [formError, setFormError] = useState('');
@@ -28,7 +27,7 @@ export default function LoginPage() {
     setFormError('');
     try {
       await login(values.email, values.password);
-      navigate('/');
+      void navigate('/');
     } catch {
       // Mensaje generico: el backend no distingue email inexistente de
       // contrasena incorrecta, y el cliente tampoco debe hacerlo (FR-008).
