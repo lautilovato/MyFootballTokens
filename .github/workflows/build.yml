@@ -2,18 +2,25 @@ name: Build
 
 on:
   push:
+    branches:
+      - main
   pull_request:
 
 jobs:
   build:
+    name: Build, tests y SonarQube
     runs-on: ubuntu-latest
 
     steps:
       - uses: actions/checkout@v4
+        with:
+          # Sonar necesita el historial completo para calcular el código nuevo.
+          fetch-depth: 0
 
+      # vitest 5 y @mikro-orm/core 7 exigen Node >= 22.
       - uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 24
           cache: npm
           cache-dependency-path: |
             back/package-lock.json
@@ -27,6 +34,10 @@ jobs:
         working-directory: back
         run: npm run build
 
+      - name: Test backend (con cobertura)
+        working-directory: back
+        run: npm test -- --coverage
+
       - name: Install frontend dependencies
         working-directory: front
         run: npm ci
@@ -34,3 +45,65 @@ jobs:
       - name: Build frontend
         working-directory: front
         run: npm run build
+
+      - name: Test frontend (con cobertura)
+        working-directory: front
+        run: npm test -- --coverage
+
+      - name: SonarQube Scan
+        uses: SonarSource/sonarqube-scan-action@7006c4492b2e0ee0f816d36501671557c97f5995 # v8.1.0
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+
+  e2e:
+    name: Tests e2e (backend)
+    runs-on: ubuntu-latest
+
+    # Mismos puertos y credenciales que back/.env.test.
+    services:
+      postgres:
+        image: postgres:15-alpine
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: root
+          POSTGRES_DB: player_market_test
+        ports:
+          - 5433:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+    defaults:
+      run:
+        working-directory: back
+
+    env:
+      NODE_ENV: test
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: back/package-lock.json
+
+      - run: npm ci
+
+      - name: Aplicar migraciones
+        run: npx mikro-orm migration:up
+
+      - name: Tests e2e
+        run: npm run test:e2e

@@ -43,6 +43,8 @@ const config: Config = {
     'apps/**/*.(t|j)s',
   ],
   coverageDirectory: './coverage',
+  // projectRoot '..': rutas del lcov relativas a la raíz del repo (back/src/...), desde donde corre Sonar.
+  coverageReporters: ['text', ['lcov', { projectRoot: '..' }]],
   testEnvironment: 'node',
 };
 
