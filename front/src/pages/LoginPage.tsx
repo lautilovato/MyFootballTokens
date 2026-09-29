@@ -28,7 +28,7 @@ export default function LoginPage() {
     setFormError('');
     try {
       await login(values.email, values.password);
-      navigate('/');
+      void navigate('/');
     } catch {
       // Mensaje generico: el backend no distingue email inexistente de
       // contrasena incorrecta, y el cliente tampoco debe hacerlo (FR-008).
