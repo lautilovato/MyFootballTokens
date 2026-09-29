@@ -129,7 +129,7 @@ export default function HomePage() {
   return (
     <main className="min-h-screen bg-navy-deep text-slate-200">
       <header className="flex flex-wrap items-center justify-between gap-3 border-b border-white/10 px-6 py-4">
-        <h1 className="title-display text-2xl text-neon-blue">Striker Market</h1>
+        <h1 className="title-display text-2xl text-neon-blue">MyFootballTokens</h1>
         <div className="flex items-center gap-4 text-sm">
           <span className="text-slate-400">{user?.username}</span>
           <button onClick={logout} className="bevel bg-navy-card px-4 py-1 text-slate-200">
