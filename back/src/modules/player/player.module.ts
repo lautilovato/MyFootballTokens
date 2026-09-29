@@ -8,5 +8,7 @@ import { PlayerService } from './player.service';
   imports: [AuthSharedModule],
   controllers: [PlayerController],
   providers: [PlayerService, PlayerRepository],
+  // La caché del listado la invalidan los procesos que cambian el catálogo (research #8).
+  exports: [PlayerService],
 })
 export class PlayerModule {}

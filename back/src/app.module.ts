@@ -13,6 +13,7 @@ import {
 import { LoggingModule } from './shared/logging/logging.module';
 import { AuthModule } from './modules/auth/auth.module';
 import { IngestionModule } from './modules/ingestion/ingestion.module';
+import { LeagueModule } from './modules/league/league.module';
 import { PlayerModule } from './modules/player/player.module';
 import { PlayerStatsModule } from './modules/player-stats/player-stats.module';
 import { TeamWhoScoredMatchingModule } from './modules/team-whoscored-matching/team-whoscored-matching.module';
@@ -50,6 +51,7 @@ export const { ObserveModule, ObserveInstrument } = createObserveModule();
     }),
     AuthModule,
     PlayerModule,
+    LeagueModule,
     IngestionModule,
     PlayerStatsModule,
     TeamWhoScoredMatchingModule,
