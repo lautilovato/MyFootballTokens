@@ -21,6 +21,7 @@ const SEASON_STATS: NormalizedSeasonStats = {
   whoScoredPlayerId: 'ws-1',
   whoScoredName: 'Fixture Player Matched',
   season: '2025-2026',
+  matchesPlayed: 6,
   goals: 3,
   assists: 1,
   shotsPerGame: 2.5,
@@ -148,6 +149,8 @@ describe('PlayerStats (e2e)', () => {
     const first = await playerStatsService.refresh();
     expect(first).toEqual({ teamsProcessed: 1, teamsSkipped: 0, playersUpdated: 1, playersUnmatched: 0 });
     expect(await em.count(PlayerSeasonStats, {})).toBe(1);
+    const [stats] = await em.fork().find(PlayerSeasonStats, {});
+    expect(stats.matchesPlayed).toBe(SEASON_STATS.matchesPlayed);
 
     const second = await playerStatsService.refresh();
     expect(second.playersUpdated).toBe(1);

@@ -16,6 +16,7 @@ export interface NormalizedSeasonStats {
   whoScoredPlayerId: string;
   whoScoredName: string;
   season: string;
+  matchesPlayed: number;
   goals: number;
   assists: number;
   shotsPerGame: number;
@@ -75,6 +76,7 @@ export class WhoScoredAdapter {
         whoScoredPlayerId: whoScoredPlayerId ?? row.label,
         whoScoredName: row.label,
         season,
+        matchesPlayed: this.appearances(row.values.Apps),
         goals: this.num(row.values.Goals),
         assists: this.num(row.values.Assists),
         shotsPerGame: this.num(row.values.SpG),
@@ -171,6 +173,16 @@ export class WhoScoredAdapter {
     if (!value || value === '-') return 0;
     const parsed = Number(value.replace(/,/g, ''));
     return Number.isFinite(parsed) ? parsed : 0;
+  }
+
+  /**
+   * WhoScored escribe los partidos jugados como "titularidades(ingresos desde el banco)",
+   * p. ej. "25(3)", o solo "25" si nunca entró desde el banco. Partidos jugados es la suma.
+   */
+  private appearances(value: string | undefined): number {
+    const match = /^(\d+)(?:\((\d+)\))?$/.exec(value?.trim() ?? '');
+    if (!match) return 0;
+    return Number(match[1]) + Number(match[2] ?? 0);
   }
 
   private parseDate(value: string | undefined): string {
