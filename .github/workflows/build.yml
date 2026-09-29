@@ -26,9 +26,11 @@ jobs:
             back/package-lock.json
             front/package-lock.json
 
+      # --ignore-scripts: no se ejecutan scripts de instalación de terceros. No hacen falta:
+      # bcrypt, esbuild y unrs-resolver traen binarios precompilados por plataforma.
       - name: Install backend dependencies
         working-directory: back
-        run: npm ci
+        run: npm ci --ignore-scripts
 
       - name: Build backend
         working-directory: back
@@ -40,7 +42,7 @@ jobs:
 
       - name: Install frontend dependencies
         working-directory: front
-        run: npm ci
+        run: npm ci --ignore-scripts
 
       - name: Build frontend
         working-directory: front
@@ -100,10 +102,10 @@ jobs:
           cache: npm
           cache-dependency-path: back/package-lock.json
 
-      - run: npm ci
+      - run: npm ci --ignore-scripts
 
       - name: Aplicar migraciones
-        run: npx mikro-orm migration:up
+        run: npm run migration:up
 
       - name: Tests e2e
         run: npm run test:e2e
