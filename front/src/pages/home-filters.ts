@@ -77,11 +77,12 @@ export function paramsFromFilters(
 
 /** Los dos filtros son el mismo conjunto, ignorando la página y el orden de los arreglos. */
 export function sameFilters(a: PlayerFilters, b: PlayerFilters): boolean {
+  const sorted = (values?: string[]) => [...(values ?? [])].sort((x, y) => x.localeCompare(y));
   const normalize = (f: PlayerFilters) =>
     JSON.stringify({
-      league: [...(f.league ?? [])].sort(),
-      position: [...(f.position ?? [])].sort(),
-      rarity: [...(f.rarity ?? [])].sort(),
+      league: sorted(f.league),
+      position: sorted(f.position),
+      rarity: sorted(f.rarity),
       minValue: f.minValue ?? null,
       maxValue: f.maxValue ?? null,
       minOvr: f.minOvr ?? null,

@@ -120,7 +120,7 @@ export class PlayerService {
   ): string {
     // Los arreglos se ordenan para que ?position=FW&position=MF y ?position=MF&position=FW
     // compartan entrada: son la misma consulta.
-    const sorted = (values?: string[]) => (values ? [...values].sort() : null);
+    const sorted = (values?: string[]) => (values ? [...values].sort((a, b) => a.localeCompare(b)) : null);
 
     return `players:list:v${version}:${JSON.stringify({
       league: sorted(filter.league),
