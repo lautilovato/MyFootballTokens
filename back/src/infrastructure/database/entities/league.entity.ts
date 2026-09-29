@@ -8,7 +8,7 @@ export class League {
   id!: number;
 
   @Property({ type: 'string', unique: true })
-  name!: string; // "Premier League", "La Liga", etc.
+  name!: string; // "Premier League", "LaLiga", etc.
 
   @Property({ type: 'string' })
   country!: string;

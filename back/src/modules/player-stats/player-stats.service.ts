@@ -4,7 +4,12 @@ import { WhoScoredBlockedException } from '../../adapters/who-scored/who-scored.
 import { PinoLoggerService } from '../../shared/logging/pino-logger.service';
 import { PlayerMatchStatsResponseDto, MatchStatsDto } from './dto/player-match-stats-response.dto';
 import { PlayerStatsRefreshResultDto } from './dto/player-stats-refresh-result.dto';
-import { findBestMatch, jaroWinkler, normalizeName } from '../../shared/matching/name-matcher';
+import {
+  findBestMatch,
+  jaroWinkler,
+  normalizeName,
+  sharesSurname,
+} from '../../shared/matching/name-matcher';
 import { PlayerStatsRepository } from './player-stats.repository';
 import { PlayerService } from '../player/player.service';
 
@@ -36,7 +41,7 @@ export class PlayerStatsService {
         const squadStats = await this.adapter.getSquadStats(team.externalWhoScoredId!);
 
         for (const row of squadStats) {
-          const match = findBestMatch(row.whoScoredName, candidates, threshold);
+          const match = findBestMatch(row.whoScoredName, candidates, threshold, sharesSurname);
 
           if (!match) {
             const bestSimilarity =

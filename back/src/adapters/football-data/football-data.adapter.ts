@@ -14,6 +14,16 @@ const POSITION_MAP: Record<string, PlayerPosition> = {
   Offence: PlayerPosition.FW,
 };
 
+/**
+ * Nombres a mostrar que difieren del que devuelve Football-Data.org, por código de liga. La
+ * API llama "Primera Division" (sin tilde) a la liga española; se usa el nombre comercial,
+ * igual que con el resto (Premier League, Serie A, ...). Va acá y no en la base porque cada
+ * ingesta vuelve a escribir el nombre.
+ */
+const LEAGUE_DISPLAY_NAMES: Record<string, string> = {
+  PD: 'LaLiga',
+};
+
 export interface NormalizedLeague {
   externalId: number;
   code: string;
@@ -45,7 +55,12 @@ export class FootballDataAdapter {
 
   async getLeague(code: string): Promise<NormalizedLeague> {
     const dto = await this.client.get<FootballDataCompetitionDto>(`/competitions/${code}`);
-    return { externalId: dto.id, code: dto.code, name: dto.name, country: dto.area.name };
+    return {
+      externalId: dto.id,
+      code: dto.code,
+      name: LEAGUE_DISPLAY_NAMES[dto.code] ?? dto.name,
+      country: dto.area.name,
+    };
   }
 
   async getTeamsByLeague(code: string): Promise<Array<{ externalId: number }>> {

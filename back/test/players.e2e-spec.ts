@@ -25,6 +25,9 @@ const FIXTURES = [
   { name: 'Zoltan SinStats',  pos: PlayerPosition.MF, rating: null,   ovr: null, rarity: 'common',  value: '500.00',  nat: 'Hungary',   league: 'E2E Liga'    },
 ] as const;
 
+/** El listado solo incluye a los jugadores con estadísticas de la temporada vigente. */
+const LISTED_COUNT = FIXTURES.filter((f) => f.rating !== null).length;
+
 describe('Players / Leagues (e2e)', () => {
   let app: INestApplication;
   let em: EntityManager;
@@ -132,7 +135,7 @@ describe('Players / Leagues (e2e)', () => {
       const { body } = await get('/players?limit=100').expect(200);
 
       expect(body.meta).toEqual({
-        total: FIXTURES.length,
+        total: LISTED_COUNT,
         page: 1,
         limit: 100,
         totalPages: 1,
@@ -154,16 +157,10 @@ describe('Players / Leagues (e2e)', () => {
       expect(typeof legend.changePct).toBe('number');
     });
 
-    it('incluye al jugador sin estadísticas, con métricas nulas y rareza common (FR-010, FR-015, FR-030)', async () => {
+    it('no lista a los jugadores sin estadísticas de la temporada vigente', async () => {
       const { body } = await get('/players?limit=100').expect(200);
-      const sinStats = body.data.find((p: any) => p.name === 'Zoltan SinStats');
-
-      expect(sinStats).toBeDefined();
-      expect(sinStats.ovr).toBeNull();
-      expect(sinStats.rarity).toBe('common');
-      // null, no 0: es lo que permite distinguir "sin dato" de un cero real.
-      expect(sinStats.goals).toBeNull();
-      expect(sinStats.assists).toBeNull();
+      expect(body.data.map((p: any) => p.name)).not.toContain('Zoltan SinStats');
+      expect(body.data.every((p: any) => p.ovr !== null)).toBe(true);
     });
 
     it('devuelve el código de bandera de las selecciones británicas (research #7)', async () => {
@@ -183,17 +180,17 @@ describe('Players / Leagues (e2e)', () => {
       const ids2 = page2.body.data.map((p: any) => p.id);
 
       expect(ids1).toHaveLength(3);
-      expect(ids2).toHaveLength(3);
+      expect(ids2).toHaveLength(LISTED_COUNT - 3);
       expect(ids1.filter((id: string) => ids2.includes(id))).toEqual([]);
       // El LEFT JOIN a las stats no debe multiplicar filas: el total cuenta jugadores.
-      expect(page1.body.meta.total).toBe(FIXTURES.length);
-      expect(new Set([...ids1, ...ids2]).size).toBe(FIXTURES.length);
+      expect(page1.body.meta.total).toBe(LISTED_COUNT);
+      expect(new Set([...ids1, ...ids2]).size).toBe(LISTED_COUNT);
     });
 
     it('una página fuera de rango devuelve vacío con el total correcto', async () => {
       const { body } = await get('/players?page=99&limit=20').expect(200);
       expect(body.data).toEqual([]);
-      expect(body.meta.total).toBe(FIXTURES.length);
+      expect(body.meta.total).toBe(LISTED_COUNT);
     });
   });
 
@@ -237,10 +234,10 @@ describe('Players / Leagues (e2e)', () => {
       }
     });
 
-    it('common agrupa a los de OVR bajo y a los que no tienen estadísticas', async () => {
+    it('common agrupa a los de OVR bajo (los sin estadísticas no se listan)', async () => {
       const { body } = await get('/players?rarity=common&limit=100').expect(200);
       const names = body.data.map((p: any) => p.name).sort();
-      expect(names).toEqual(['Dario Comun', 'Zoltan SinStats']);
+      expect(names).toEqual(['Dario Comun']);
     });
 
     it('varias rarezas se unen', async () => {
@@ -271,7 +268,7 @@ describe('Players / Leagues (e2e)', () => {
   describe('E6 — filtros de valores múltiples y combinación (FR-001, FR-002, FR-007)', () => {
     it('dos ligas devuelven jugadores de ambas y de ninguna otra', async () => {
       const { body } = await get('/players?league=E2E Premier&league=E2E Liga&limit=100').expect(200);
-      expect(body.meta.total).toBe(FIXTURES.length);
+      expect(body.meta.total).toBe(LISTED_COUNT);
     });
 
     it('una sola liga acota el conjunto', async () => {
@@ -279,14 +276,13 @@ describe('Players / Leagues (e2e)', () => {
       expect(body.data.map((p: any) => p.name).sort()).toEqual([
         'Dario Comun',
         'Nicolás Raro',
-        'Zoltan SinStats',
       ]);
     });
 
     it('dos posiciones devuelven solo esas dos', async () => {
       const { body } = await get('/players?position=FW&position=MF&limit=100').expect(200);
       expect(body.data.every((p: any) => ['FW', 'MF'].includes(p.position))).toBe(true);
-      expect(body.data).toHaveLength(4);
+      expect(body.data).toHaveLength(3);
     });
 
     it('combina liga, posición y rango de OVR a la vez', async () => {
