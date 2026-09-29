@@ -93,6 +93,7 @@ describe('Players / Leagues (e2e)', () => {
           em.create(PlayerSeasonStats, {
             player,
             season: SEASON,
+            matchesPlayed: 12,
             goals: 10,
             assists: 5,
             shotsPerGame: '2.50',
@@ -372,6 +373,7 @@ describe('Players / Leagues (e2e)', () => {
         league: 'E2E Premier',
         season: SEASON,
         height: 180,
+        matchesPlayed: 12,
         goals: 10,
         assists: 5,
       });
@@ -386,6 +388,7 @@ describe('Players / Leagues (e2e)', () => {
 
       expect(body.season).toBeNull();
       expect(body.rating).toBeNull();
+      expect(body.matchesPlayed).toBeNull();
       expect(body.shotsPerGame).toBeNull();
       expect(body.keyPasses).toBeNull();
       expect(body.dribbles).toBeNull();
