@@ -1,5 +1,6 @@
 import { CacheModule } from '@nestjs/cache-manager';
 import { Module } from '@nestjs/common';
+import { ScheduleModule } from '@nestjs/schedule';
 import { ThrottlerModule } from '@nestjs/throttler';
 import { createObserveModule } from '@nestjs/observe';
 import KeyvRedis from '@keyv/redis';
@@ -14,8 +15,11 @@ import { LoggingModule } from './shared/logging/logging.module';
 import { AuthModule } from './modules/auth/auth.module';
 import { IngestionModule } from './modules/ingestion/ingestion.module';
 import { LeagueModule } from './modules/league/league.module';
+import { PlayerImagesModule } from './modules/player-images/player-images.module';
 import { PlayerModule } from './modules/player/player.module';
 import { PlayerStatsModule } from './modules/player-stats/player-stats.module';
+import { QuotesModule } from './modules/quotes/quotes.module';
+import { ValuationStrategyModule } from './modules/valuation-strategy/valuation-strategy.module';
 import { TeamWhoScoredMatchingModule } from './modules/team-whoscored-matching/team-whoscored-matching.module';
 
 export const { ObserveModule, ObserveInstrument } = createObserveModule();
@@ -35,6 +39,8 @@ const observeImports =
     ...observeImports,
     LoggingModule,
     DatabaseModule,
+    // Job scheduler de la constitución §4: el recálculo semanal de cotizaciones (07-cotizacion).
+    ScheduleModule.forRoot(),
     // Limite de intentos para /auth (FR-013, research #7). Almacenamiento en
     // memoria: correcto mientras haya una sola instancia.
     ThrottlerModule.forRoot([
@@ -58,7 +64,10 @@ const observeImports =
     LeagueModule,
     IngestionModule,
     PlayerStatsModule,
+    PlayerImagesModule,
     TeamWhoScoredMatchingModule,
+    ValuationStrategyModule,
+    QuotesModule,
   ],
   controllers: [AppController],
   providers: [AppService],

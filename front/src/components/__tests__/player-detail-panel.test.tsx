@@ -17,6 +17,7 @@ const PLAYER: ApiPlayerDetail = {
   rarity: 'legendary',
   club: { name: 'Manchester City', crestUrl: null },
   nationality: { name: 'Norway', code: 'no' },
+  imageUrl: null,
   goals: 29,
   assists: 5,
   marketValue: 8450,

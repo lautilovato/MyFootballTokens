@@ -5,6 +5,8 @@ import request from 'supertest';
 import { AppModule } from '../src/app.module';
 import { League } from '../src/infrastructure/database/entities/league.entity';
 import { Player, PlayerPosition } from '../src/infrastructure/database/entities/player.entity';
+import { PlayerQuote } from '../src/infrastructure/database/entities/player-quote.entity';
+import { QuoteRun } from '../src/infrastructure/database/entities/quote-run.entity';
 import { PlayerSeasonStats } from '../src/infrastructure/database/entities/player-season-stats.entity';
 import { Team } from '../src/infrastructure/database/entities/team.entity';
 import { User } from '../src/infrastructure/database/entities/user.entity';
@@ -59,6 +61,9 @@ describe('Players / Leagues (e2e)', () => {
 
   async function cleanDatabase() {
     await em.nativeDelete(PlayerSeasonStats, {});
+    // 07-cotizacion: las cotizaciones referencian al jugador; se borran antes.
+    await em.nativeDelete(PlayerQuote, {});
+    await em.nativeDelete(QuoteRun, {});
     await em.nativeDelete(Player, {});
     await em.nativeDelete(Team, {});
     await em.nativeDelete(League, {});
@@ -167,6 +172,20 @@ describe('Players / Leagues (e2e)', () => {
     it('devuelve el código de bandera de las selecciones británicas (research #7)', async () => {
       const { body } = await get('/players?search=Truncado').expect(200);
       expect(body.data[0].nationality).toEqual({ name: 'England', code: 'gb-eng' });
+    });
+
+    it('devuelve imageUrl nulo mientras el jugador no tiene imagen', async () => {
+      const { body } = await get('/players?search=Legend').expect(200);
+      expect(body.data[0].imageUrl).toBeNull();
+    });
+
+    it('devuelve la imagen cartoon guardada del jugador', async () => {
+      const imageUrl = 'https://r2.thesportsdb.com/images/media/player/cartoon/e2e.png';
+      await em.nativeUpdate(Player, { id: idsByName.get('Bruno Epico')! }, { imageUrl });
+
+      // El detalle no pasa por la caché del listado, así que ve el cambio al instante.
+      const { body } = await get(`/players/${idsByName.get('Bruno Epico')}`).expect(200);
+      expect(body.imageUrl).toBe(imageUrl);
     });
   });
 

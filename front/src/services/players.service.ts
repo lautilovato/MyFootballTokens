@@ -23,6 +23,8 @@ export interface ApiPlayerCard {
   rarity: Rarity;
   club: { name: string; crestUrl: string | null };
   nationality: { name: string | null; code: string | null };
+  /** Ilustración cartoon (PNG con fondo transparente). Nulo si todavía no se encontró. */
+  imageUrl: string | null;
   /** Nulo —no cero— cuando no hay estadísticas: "sin dato" es distinto de un cero real. */
   goals: number | null;
   assists: number | null;

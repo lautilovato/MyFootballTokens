@@ -90,13 +90,20 @@ export class PlayerCardDto {
   @ApiProperty({ type: NationalityDto })
   nationality!: NationalityDto;
 
+  @ApiProperty({
+    type: String,
+    nullable: true,
+    description: 'Ilustración cartoon (PNG) de TheSportsDB. Nulo si todavía no se encontró.',
+  })
+  imageUrl!: string | null;
+
   @ApiProperty({ type: Number, nullable: true, description: 'Nulo —no cero— si no hay estadísticas (FR-015)' })
   goals!: number | null;
 
   @ApiProperty({ type: Number, nullable: true })
   assists!: number | null;
 
-  @ApiProperty({ type: Number, example: 8450, description: 'Valor base del jugador. Dato real.' })
+  @ApiProperty({ type: Number, example: 8450, description: 'Precio de la última cotización del jugador (07-cotizacion). 0 si nunca fue cotizado. Dato real.' })
   marketValue!: number;
 
   @ApiProperty({ type: Number, example: 12.5, description: 'SIMULADO — determinista por jugador (research #5)' })
@@ -126,6 +133,7 @@ export class PlayerCardDto {
       name: player.nationality ?? null,
       code: nationalityCode(player.nationality),
     };
+    dto.imageUrl = player.imageUrl ?? null;
     dto.goals = stats ? stats.goals : null;
     dto.assists = stats ? stats.assists : null;
     dto.marketValue = marketValue;

@@ -1,13 +1,15 @@
 /**
- * ⚠️ MAQUETA — reemplazar por el motor de cotizaciones.
+ * ⚠️ MAQUETA — reemplazar por el historial de cotizaciones.
  *
- * La variación porcentual y la serie de 30 días que muestran la carta y el panel de detalle
- * NO son datos reales: no existe todavía motor de cotizaciones, y la spec 06-home lo deja
- * explícitamente fuera de alcance exigiendo que se muestren como maqueta (FR-023).
+ * El valor ACTUAL ya es real: es el precio de la última cotización del jugador, que el
+ * recálculo de 07-cotizacion espeja en `player.base_value` (research #10). Lo que sigue
+ * simulado es la variación porcentual y la serie de 30 días que muestran la carta y el panel
+ * de detalle: la spec 06-home las exige como maqueta (FR-023) y la 07 deja fuera de alcance
+ * cualquier cambio en la home.
  *
- * Cuando exista el motor de valoración de la constitución §5 —con sus estrategias
- * configurables y su traza por cotización—, este archivo es lo único que hay que reemplazar:
- * el resto del código consume `mockMarketMovement` y nada más.
+ * El dato real ya existe en `GET /quotes/players/:id/history` (variación y serie a partir de
+ * las cotizaciones guardadas). Cuando una feature lo conecte a la home, este archivo es lo
+ * único que hay que reemplazar: el resto del código consume `mockMarketMovement` y nada más.
  *
  * Por qué es DETERMINISTA y no aleatoria (research #5): la grilla y el detalle son dos
  * respuestas distintas del mismo jugador. Si cada una simulara por su cuenta, el mismo
