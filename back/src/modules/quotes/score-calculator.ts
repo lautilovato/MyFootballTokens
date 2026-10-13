@@ -1,13 +1,3 @@
-/**
- * Cálculo del score y la cotización de los jugadores (07-cotizacion, research #4–#7).
- *
- * Función pura: sin NestJS, sin inyección, sin base de datos (constitución §7, excepción de
- * utilidades puras). Todo lo que necesita entra por parámetro, de modo que las fórmulas de la
- * spec —incluido su ejemplo trabajado de 724 créditos— se verifican sin levantar nada.
- *
- * Los imports son solo de tipos: cargar las entidades en runtime arrastraría los decoradores
- * de MikroORM.
- */
 import type {
   Metric,
   StrategyPositionKey,
@@ -17,7 +7,6 @@ import type {
 import type { NormalizationBounds } from '../../infrastructure/database/entities/quote-run.entity';
 import type { BreakdownItem } from '../../infrastructure/database/entities/player-quote.entity';
 
-/** Métricas de rendimiento que se normalizan por percentiles contra el universo del lote. */
 export const PERCENTILE_METRICS = [
   'goals',
   'assists',
@@ -28,24 +17,18 @@ export const PERCENTILE_METRICS = [
   'rating',
 ] as const satisfies readonly Metric[];
 
-/** Métricas expresadas por partido: valen 0 si no se sabe cuántos partidos jugó (edge case). */
 const PER_GAME_METRICS: ReadonlySet<Metric> = new Set(['shots', 'keyPasses', 'dribbles', 'tackles']);
 
-/** Orden fijo del desglose: el mismo para todas las cotizaciones. */
 const BREAKDOWN_ORDER: readonly Metric[] = [...PERCENTILE_METRICS, 'absence', 'worldReputation'];
 
 const LOWER_PERCENTILE = 0.05;
 const UPPER_PERCENTILE = 0.95;
 
-/** Perfil de pesos aplicado. Coincide con el enum `PositionProfile` de la entidad. */
 export type ProfileKey = 'GENERAL' | StrategyPositionKey;
 
-/** Lo que el cálculo necesita de un jugador, ya convertido a números. */
 export interface PlayerMetricsRow {
   playerId: string;
-  /** GK, DF, MF, FW o UNKNOWN. */
   position: string;
-  /** Liga del equipo: la ausencia se mide contra el máximo de partidos de la misma liga. */
   leagueId: number;
   matchesPlayed: number | null;
   goals: number;
@@ -58,7 +41,6 @@ export interface PlayerMetricsRow {
   worldReputation: number | null;
 }
 
-/** La parte de una versión de estrategia que interviene en el cálculo. */
 export interface ScoringConfig {
   weights: StrategyWeights;
   baseValue: number;
@@ -79,11 +61,6 @@ export interface CalculatedQuote {
   missingMatchesPlayed: boolean;
 }
 
-/**
- * Valor de una métrica para un jugador: el dato de origen y su versión normalizada. La
- * normalizada es ≥ 0 y NO tiene tope: un valor por encima del percentil 95 supera 1 (la
- * ausencia y la reputación sí están acotadas a [0,1]).
- */
 export interface MetricValue {
   raw: number | null;
   normalized: number;
@@ -100,7 +77,6 @@ function clamp01(value: number): number {
   return Math.min(1, Math.max(0, value));
 }
 
-/** Percentil `p` (0–1) por interpolación lineal. `values` no necesita venir ordenado. */
 export function percentile(values: readonly number[], p: number): number {
   if (values.length === 0) return 0;
   const sorted = [...values].sort((a, b) => a - b);
@@ -139,19 +115,12 @@ export function computeLeagueMaxMatches(rows: readonly PlayerMetricsRow[]): Map<
   return max;
 }
 
-/**
- * `(x − p5) / (p95 − p5)`, con piso en 0 y SIN tope superior: el p5 y el p95 marcan la escala
- * de referencia (0 y 1), pero quien los supera sigue sumando, de modo que el precio no se
- * amontona en un máximo. Si la métrica no varía en el lote, vale 0 para todos: no hay nada que
- * distinguir y dividir por cero distorsionaría el resto.
- */
 export function normalizeByBounds(value: number, bounds: { p5: number; p95: number }): number {
   const range = bounds.p95 - bounds.p5;
   if (range <= 1e-12) return 0;
   return Math.max(0, (value - bounds.p5) / range);
 }
 
-/** Lleva todas las métricas de un jugador a la escala de referencia (0 = p5, 1 = p95). */
 export function normalizeRow(
   row: PlayerMetricsRow,
   bounds: NormalizationBounds,
@@ -168,8 +137,6 @@ export function normalizeRow(
     };
   }
 
-  // Ausencia = qué parte de lo que se jugó en su liga se perdió. Sin dato de partidos no se
-  // penaliza; con una liga en la que nadie jugó, tampoco.
   const missingMatchesPlayed = row.matchesPlayed === null;
   const leagueMax = leagueMaxMatches.get(row.leagueId) ?? 0;
   values.absence = {
@@ -187,7 +154,6 @@ export function normalizeRow(
   return { values, usedDefaultReputation, missingMatchesPlayed };
 }
 
-/** El perfil de la posición si la estrategia lo define; si no, el general (research #7). */
 export function selectProfile(
   position: string,
   weights: StrategyWeights,
@@ -197,10 +163,6 @@ export function selectProfile(
   return { profile: 'GENERAL', weights: weights.general };
 }
 
-/**
- * Suma ponderada re-escalada por la suma de pesos positivos `S⁺` (FR-007). Cada contribución
- * ya va dividida por `S⁺`, así la suma del desglose es exactamente `rawScore` (FR-002b).
- */
 export function scoreFromNormalized(
   values: NormalizedMetrics,
   weights: Weights,

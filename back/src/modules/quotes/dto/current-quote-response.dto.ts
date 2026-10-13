@@ -8,6 +8,7 @@ import {
   PositionProfile,
 } from '../../../infrastructure/database/entities/player-quote.entity';
 import { QuoteRunTrigger } from '../../../infrastructure/database/entities/quote-run.entity';
+import { priceChangePct } from '../quotes.model';
 import { StrategyRefDto } from './quote-run-response.dto';
 
 export class BreakdownItemDto {
@@ -106,10 +107,7 @@ export class CurrentQuoteDetailDto extends QuoteDto {
     dto.breakdown = latest.breakdown;
     dto.positiveWeightSum = Number(latest.positiveWeightSum);
     dto.previousPrice = previous?.price ?? null;
-    dto.changePct =
-      previous && previous.price > 0
-        ? Number((((latest.price - previous.price) / previous.price) * 100).toFixed(1))
-        : null;
+    dto.changePct = priceChangePct(latest.price, previous?.price);
     return dto;
   }
 }

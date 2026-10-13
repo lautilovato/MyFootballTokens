@@ -21,11 +21,6 @@ export class ValuationStrategyService {
     private readonly logger: PinoLoggerService,
   ) {}
 
-  /**
-   * Versión vigente de la estrategia activa. La migración deja siempre una activa, pero si
-   * alguien la desactivara por fuera de la API el recálculo debe fallar con un motivo claro en
-   * lugar de cotizar con cualquier cosa (US1-7).
-   */
   async getActiveVersion(): Promise<StrategyWithVersion> {
     const active = await this.repository.findActive();
     if (!active) {
@@ -54,12 +49,7 @@ export class ValuationStrategyService {
     return versions.map((version) => StrategyVersionDto.fromEntity(version));
   }
 
-  /**
-   * Crea una versión nueva e inmutable (FR-011). Si la configuración no pasa las reglas
-   * semánticas, se rechaza con todos los motivos y no se crea nada (FR-012).
-   */
   async createVersion(key: string, dto: StrategyConfigDto): Promise<StrategyVersionDto> {
-    // Se guarda como objeto plano: el DTO transformado trae instancias de clase.
     const weights = instanceToPlain(dto.weights, { exposeUnsetFields: false }) as StrategyWeights;
     const config = { ...dto, weights };
 
@@ -73,7 +63,6 @@ export class ValuationStrategyService {
     return StrategyVersionDto.fromEntity(version);
   }
 
-  /** Rige desde el próximo recálculo: las cotizaciones vigentes no cambian (FR-014). */
   async activate(key: string): Promise<StrategyResponseDto> {
     const activated = await this.repository.activate(key);
     if (!activated) throw this.notFound(key);
