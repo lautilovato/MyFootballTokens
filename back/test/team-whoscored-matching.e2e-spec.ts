@@ -14,6 +14,7 @@ import { Team } from '../src/infrastructure/database/entities/team.entity';
 import { WhoScoredUnmatchedPlayer } from '../src/infrastructure/database/entities/who-scored-unmatched-player.entity';
 import { WhoScoredUnmatchedTeam } from '../src/infrastructure/database/entities/who-scored-unmatched-team.entity';
 import { TeamWhoScoredMatchingService } from '../src/modules/team-whoscored-matching/team-whoscored-matching.service';
+import { cleanPacksData } from './support/clean-database';
 
 /** Fixture determinístico: reemplaza al WhoScoredAdapter real (ver quickstart.md, Escenarios 1-4). */
 class FakeWhoScoredAdapter {
@@ -71,6 +72,7 @@ describe('TeamWhoScoredMatching (e2e)', () => {
   });
 
   async function cleanDatabase() {
+    await cleanPacksData(em);
     // Orden FK-safe completo (no solo lo que este archivo crea): ingestion.e2e-spec.ts no
     // limpia después de su último test, así que puede haber Player/stats colgando de
     // corridas anteriores en la misma base de test compartida entre archivos e2e.

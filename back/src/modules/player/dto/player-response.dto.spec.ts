@@ -1,6 +1,6 @@
 import { Player, PlayerPosition } from '../../../infrastructure/database/entities/player.entity';
 import { PlayerSeasonStats } from '../../../infrastructure/database/entities/player-season-stats.entity';
-import { PlayerDetailDto } from './player-response.dto';
+import { PlayerCardDto, PlayerDetailDto } from './player-response.dto';
 
 function player(): Player {
   return Object.assign(new Player(), {
@@ -53,5 +53,38 @@ describe('PlayerDetailDto.fromEntity', () => {
     expect(dto.matchesPlayed).toBeNull();
     expect(dto.rating).toBeNull();
     expect(dto.season).toBeNull();
+  });
+});
+
+// 08-sobres FR-067 a FR-069: el OVR es la reputación cargada, no el rating de temporada.
+describe('PlayerCardDto.fromEntity — OVR y rareza', () => {
+  it('toma el OVR de la reputación aunque el rating diga otra cosa', () => {
+    const withReputation = Object.assign(player(), { worldReputation: 88 });
+    const dto = PlayerCardDto.fromEntity({ player: withReputation, stats: stats({ rating: '6.10' }) });
+
+    expect(dto.ovr).toBe(88);
+    expect(dto.rarity).toBe('legendary');
+  });
+
+  it('presenta una reputación de 100 como OVR 99', () => {
+    const dto = PlayerCardDto.fromEntity({ player: Object.assign(player(), { worldReputation: 100 }), stats: null });
+    expect(dto.ovr).toBe(99);
+  });
+
+  it('sin reputación cargada, OVR nulo y rareza common (FR-068)', () => {
+    const dto = PlayerCardDto.fromEntity({ player: Object.assign(player(), { worldReputation: null }), stats: stats() });
+
+    expect(dto.ovr).toBeNull();
+    expect(dto.rarity).toBe('common');
+  });
+
+  it('el detalle muestra el mismo OVR y la misma rareza que la carta (FR-069)', () => {
+    const row = { player: Object.assign(player(), { worldReputation: 82 }), stats: stats() };
+    const card = PlayerCardDto.fromEntity(row);
+    const detail = PlayerDetailDto.fromEntity(row);
+
+    expect(detail.ovr).toBe(card.ovr);
+    expect(detail.rarity).toBe(card.rarity);
+    expect(card.rarity).toBe('epic');
   });
 });

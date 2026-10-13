@@ -1,12 +1,14 @@
-import { ratingLowerBoundForOvr } from './ovr';
-
 /**
- * Nivel de rareza de la carta, derivado del OVR (FR-029, FR-030).
+ * Nivel de rareza de la carta, derivado del OVR (08-sobres FR-016, FR-068; reemplazan FR-029
+ * y FR-030 de 06-home).
  *
  * Función pura: sin NestJS, sin inyección, sin base de datos (constitución §7, excepción de
- * utilidades puras). La rareza no es un atributo del jugador: es una lectura de su OVR, que
- * a su vez deriva del rating. Cuando una ingesta actualiza el rating, la rareza cambia sola,
- * sin migración ni recálculo.
+ * utilidades puras). La rareza no es un atributo del jugador: es una lectura de su OVR, que es
+ * su reputación mundial cargada. Cuando un administrador carga otra reputación, la rareza cambia
+ * sola, sin migración ni recálculo.
+ *
+ * Es la única regla de rareza del sistema (FR-069): la usan la home, el panel de detalle, sus
+ * filtros, la generación del stock de sobres, la apertura y el inventario.
  *
  * Los cuatro valores coinciden con el tipo `Rarity` que el componente de carta ya declara en
  * front/src/components/player-card/types.ts.
@@ -16,21 +18,23 @@ export type Rarity = 'common' | 'rare' | 'epic' | 'legendary';
 
 /** Corte inferior inclusivo de cada nivel, en OVR. Por debajo de `rare` todo es `common`. */
 export const RARITY_THRESHOLDS = {
-  legendary: 85,
-  epic: 77,
+  legendary: 88,
+  epic: 80,
   rare: 70,
 } as const;
 
-/** Rango de `rating` que representa una rareza. `max` es exclusivo; `null` es sin cota. */
-export interface RatingRange {
+/**
+ * Rango de reputación que representa una rareza. `min` es inclusivo, `max` exclusivo y `null`
+ * es sin cota. `includeNull` marca que el rango abarca a los jugadores sin reputación.
+ */
+export interface ReputationRange {
   min: number | null;
   max: number | null;
-  /** Si el rango abarca también a los jugadores sin fila de estadísticas. */
   includeNull: boolean;
 }
 
 export function rarityFromOvr(ovr: number | null): Rarity {
-  // Sin OVR no hay valoración que clasificar: la carta cae al nivel más bajo (FR-030).
+  // Sin OVR no hay valoración que clasificar: la carta cae al nivel más bajo (FR-068).
   if (ovr === null) return 'common';
   if (ovr >= RARITY_THRESHOLDS.legendary) return 'legendary';
   if (ovr >= RARITY_THRESHOLDS.epic) return 'epic';
@@ -39,20 +43,38 @@ export function rarityFromOvr(ovr: number | null): Rarity {
 }
 
 /**
- * Traduce las rarezas pedidas a rangos de `rating`, para filtrar en la base sin materializar
- * el OVR (research #1). Varios rangos se unen con OR en el repositorio.
+ * La misma regla que `rarityFromOvr`, como expresión SQL sobre una columna de reputación, para
+ * agrupar o registrar rarezas en la base sin copiar los cortes a mano (FR-069). Los cortes
+ * valen igual sobre la reputación que sobre el OVR: acotar 100 a 99 no cruza ninguno.
  *
- * `common` es el único que arrastra `includeNull`: agrupa tanto a los jugadores con rating
- * bajo como a los que no tienen estadísticas de temporada.
+ * `whenNull` decide qué devuelve un jugador sin reputación: `'common'` cuando se clasifica (como
+ * hace la carta, FR-068) o `null` cuando se registra «sin rareza» en un evento.
  */
-export function ratingRangesForRarities(rarities?: Rarity[] | null): RatingRange[] {
+export function raritySqlCase(column: string, whenNull: 'common' | null): { sql: string; params: number[] } {
+  const nullBranch = whenNull === null ? 'null' : `'${whenNull}'`;
+  return {
+    sql: `(case when ${column} is null then ${nullBranch}
+                when ${column} >= ? then 'legendary'
+                when ${column} >= ? then 'epic'
+                when ${column} >= ? then 'rare'
+                else 'common' end)`,
+    params: [RARITY_THRESHOLDS.legendary, RARITY_THRESHOLDS.epic, RARITY_THRESHOLDS.rare],
+  };
+}
+
+/**
+ * Traduce las rarezas pedidas a rangos de `player.world_reputation`, para filtrar en la base.
+ * Varios rangos se unen con OR en el repositorio. Los cortes valen igual sobre la reputación que
+ * sobre el OVR: acotar 100 a 99 no cruza ningún corte.
+ *
+ * `common` es el único que arrastra `includeNull`: agrupa tanto a los jugadores con reputación
+ * baja como a los que no la tienen cargada (FR-068).
+ */
+export function reputationRangesForRarities(rarities?: Rarity[] | null): ReputationRange[] {
   if (!rarities || rarities.length === 0) return [];
 
-  const legendary = ratingLowerBoundForOvr(RARITY_THRESHOLDS.legendary);
-  const epic = ratingLowerBoundForOvr(RARITY_THRESHOLDS.epic);
-  const rare = ratingLowerBoundForOvr(RARITY_THRESHOLDS.rare);
-
-  const byRarity: Record<Rarity, RatingRange> = {
+  const { legendary, epic, rare } = RARITY_THRESHOLDS;
+  const byRarity: Record<Rarity, ReputationRange> = {
     legendary: { min: legendary, max: null, includeNull: false },
     epic: { min: epic, max: legendary, includeNull: false },
     rare: { min: rare, max: epic, includeNull: false },

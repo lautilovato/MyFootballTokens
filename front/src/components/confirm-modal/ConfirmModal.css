@@ -6,6 +6,8 @@
   --cm-muted: #8fa7c6;
   --cm-c: 18px;
 
+  /* el preflight de Tailwind pone margin: 0 a todo y eso anula el centrado del <dialog> modal */
+  margin: auto;
   /* sin padding ni borde: así un click sobre el <dialog> sólo puede ser del fondo */
   padding: 0;
   border: 0;

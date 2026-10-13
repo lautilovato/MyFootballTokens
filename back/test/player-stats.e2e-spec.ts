@@ -18,6 +18,7 @@ import { PlayerSeasonStats } from '../src/infrastructure/database/entities/playe
 import { Team } from '../src/infrastructure/database/entities/team.entity';
 import { WhoScoredUnmatchedPlayer } from '../src/infrastructure/database/entities/who-scored-unmatched-player.entity';
 import { PlayerStatsService } from '../src/modules/player-stats/player-stats.service';
+import { cleanPacksData } from './support/clean-database';
 
 const SEASON_STATS: NormalizedSeasonStats = {
   whoScoredPlayerId: 'ws-1',
@@ -117,6 +118,7 @@ describe('PlayerStats (e2e)', () => {
   });
 
   async function cleanDatabase() {
+    await cleanPacksData(em);
     await em.nativeDelete(PlayerMatchStats, {});
     await em.nativeDelete(PlayerSeasonStats, {});
     await em.nativeDelete(WhoScoredUnmatchedPlayer, {});

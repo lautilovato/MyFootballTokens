@@ -97,6 +97,17 @@ export class PlayerService {
     });
   }
 
+  /**
+   * Cartas de varios jugadores, con el mismo mapeo que el listado: OVR, rareza, club, imagen y
+   * cotización vigente (08-sobres research #13). Usarlo en el inventario y en las aperturas
+   * garantiza que la rareza coincida con la home (FR-069). Sin caché: los ids cambian por usuario.
+   */
+  async findCardsByIds(ids: string[]): Promise<Map<string, PlayerCardDto>> {
+    const season = await this.getCurrentSeason();
+    const rows = await this.playerRepository.findManyByIds(ids, season);
+    return new Map(rows.map((row) => [row.player.id, PlayerCardDto.fromEntity(row)]));
+  }
+
   private async getListVersion(): Promise<number> {
     return (await this.cache.get<number>(PLAYERS_LIST_VERSION_KEY)) ?? 0;
   }

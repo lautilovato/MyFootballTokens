@@ -14,6 +14,7 @@ import { PlayerQuote } from '../src/infrastructure/database/entities/player-quot
 import { QuoteRun } from '../src/infrastructure/database/entities/quote-run.entity';
 import { Team } from '../src/infrastructure/database/entities/team.entity';
 import { IngestionService } from '../src/modules/ingestion/ingestion.service';
+import { cleanPacksData } from './support/clean-database';
 
 const LEAGUE_CODES = ['PL', 'BL1', 'PD', 'SA', 'FL1'];
 
@@ -91,6 +92,8 @@ describe('Ingestion (e2e)', () => {
 
   beforeEach(async () => {
     fakeAdapter.failingTeamExternalId = null;
+    // 08-sobres: tokens y sobres referencian al jugador; se vacían primero.
+    await cleanPacksData(em);
     // 07-cotizacion: las cotizaciones referencian al jugador; se borran antes.
     await em.nativeDelete(PlayerQuote, {});
     await em.nativeDelete(QuoteRun, {});

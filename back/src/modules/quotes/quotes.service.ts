@@ -14,6 +14,7 @@ import { CronJob } from 'cron';
 import { QuoteRunTrigger } from '../../infrastructure/database/entities/quote-run.entity';
 import { CorrelationIdStore } from '../../shared/logging/correlation-id.store';
 import { PinoLoggerService } from '../../shared/logging/pino-logger.service';
+import { PacksService } from '../packs/packs.service';
 import { PlayerService } from '../player/player.service';
 import { ValuationStrategyService } from '../valuation-strategy/valuation-strategy.service';
 import { BulkReputationDto } from './dto/bulk-reputation.dto';
@@ -62,6 +63,7 @@ export class QuotesService implements OnModuleInit, OnApplicationBootstrap {
     private readonly logger: PinoLoggerService,
     @Inject(CACHE_MANAGER) private readonly cache: Cache,
     private readonly schedulerRegistry: SchedulerRegistry,
+    private readonly packsService: PacksService,
   ) {}
 
   /**
@@ -204,6 +206,8 @@ export class QuotesService implements OnModuleInit, OnApplicationBootstrap {
     }
 
     await this.afterRunCommitted();
+    // 08-sobres FR-012: los jugadores recién cotizados entran al stock sin intervención manual.
+    await this.packsService.syncStockSafely('quote run');
     return QuoteRunResponseDto.fromEntity(await this.quotesRepository.findRunById(runId));
   }
 
@@ -256,14 +260,16 @@ export class QuotesService implements OnModuleInit, OnApplicationBootstrap {
   }
 
   /**
-   * Reputación mundial de un jugador (FR-024). No invalida ninguna caché de cotización: el
-   * cambio rige recién desde el próximo recálculo (FR-026).
+   * Reputación mundial de un jugador (FR-024). En la cotización rige recién desde el próximo
+   * recálculo (FR-026), pero desde 08-sobres la reputación también es el OVR del que sale la
+   * rareza (FR-067): por eso invalida ya el listado de la home.
    */
   async setReputation(playerId: string, dto: SetReputationDto): Promise<ReputationResponseDto> {
     const found = await this.quotesRepository.setReputation(playerId, dto.worldReputation);
     if (!found) throw new NotFoundException(`Player ${playerId} not found`);
 
     this.logger.event(LOG_CONTEXT, 'world reputation updated', { players: 1 });
+    await this.afterReputationChanged();
     return { playerId, worldReputation: dto.worldReputation };
   }
 
@@ -280,7 +286,24 @@ export class QuotesService implements OnModuleInit, OnApplicationBootstrap {
       players: result.updated.length,
       notFound: result.notFound.length,
     });
+    if (result.updated.length > 0) await this.afterReputationChanged();
     return result;
+  }
+
+  /**
+   * Una carga de reputación cambia OVR y rareza en la home (08-sobres FR-067) y las rarezas
+   * publicadas de los sobres (research #9), y puede volver elegibles a jugadores para el stock
+   * (FR-011). La reputación ya está guardada: un Redis caído o una sincronización fallida no deben
+   * convertir la carga en un error (resiliencia, §3).
+   */
+  private async afterReputationChanged(): Promise<void> {
+    try {
+      await this.playerService.invalidateListCache();
+    } catch (error) {
+      this.logger.warn(`cache invalidation after reputation update failed: ${describeError(error)}`, LOG_CONTEXT);
+    }
+    await this.packsService.bumpStockVersion();
+    await this.packsService.syncStockSafely('reputation update');
   }
 
   /**

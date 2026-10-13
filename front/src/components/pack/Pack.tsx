@@ -51,9 +51,22 @@ interface PackProps {
   onOpenStart?: () => void;
   /** Se llama en el pico del destello: el sobre ya no se ve, es el momento de mostrar el contenido */
   onOpened?: () => void;
+  /**
+   * Arranca la apertura sola al montarse, sin esperar un click: para un escenario que ya
+   * confirmó la compra y solo tiene que mostrar el sobre abriéndose. Requiere `openable`.
+   */
+  autoOpen?: boolean;
 }
 
-export function Pack({ pack, interactive = true, openable = true, onOpenRequest, onOpenStart, onOpened }: PackProps) {
+export function Pack({
+  pack,
+  interactive = true,
+  openable = true,
+  onOpenRequest,
+  onOpenStart,
+  onOpened,
+  autoOpen = false,
+}: PackProps) {
   const rootRef = useRef<HTMLDivElement>(null);
   const packRef = useRef<HTMLDivElement>(null);
   const reducedMotion = useRef(false);
@@ -149,6 +162,12 @@ export function Pack({ pack, interactive = true, openable = true, onOpenRequest,
     setPhase('opening');
     onOpenStart?.();
   };
+
+  // Una sola vez al montar: `pending` evita la segunda llamada del doble montaje de StrictMode.
+  useEffect(() => {
+    if (autoOpen) void open();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const { name, tier, series, cardCount } = pack;
   const label = `${name} ${LABELS.pack}, ${LABELS.tier[tier]}, ${cardCount} ${LABELS.cards}, ${series}`;

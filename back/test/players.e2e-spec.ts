@@ -16,25 +16,38 @@ import { ValuationStrategyVersion } from '../src/infrastructure/database/entitie
 import { PlayerSeasonStats } from '../src/infrastructure/database/entities/player-season-stats.entity';
 import { Team } from '../src/infrastructure/database/entities/team.entity';
 import { User } from '../src/infrastructure/database/entities/user.entity';
+import { PlayerService } from '../src/modules/player/player.service';
+import { cleanPacksData } from './support/clean-database';
 
 const SEASON = '2025-2026';
 
 /**
- * Jugadores del fixture, elegidos para cubrir los cuatro cortes de rareza y los bordes de la
- * derivación del OVR (data-model.md §2.1 y §2.2), más un jugador sin estadísticas (FR-030)
- * y uno con nombre acentuado para la búsqueda sin acentos (FR-006).
+ * Jugadores del fixture, elegidos para cubrir los cuatro cortes de rareza y sus bordes
+ * (08-sobres FR-016: 88 / 80 / 70 sobre el OVR, que es la reputación, FR-067), más un jugador
+ * sin estadísticas, uno con estadísticas pero sin reputación cargada (FR-068) y uno con nombre
+ * acentuado para la búsqueda sin acentos (FR-006).
+ *
+ * Los ratings no coinciden a propósito con la reputación: el OVR ya no sale del rating.
  */
 const FIXTURES = [
-  { name: 'Aaron Legend',     pos: PlayerPosition.FW, rating: '8.63', ovr: 86, rarity: 'legendary', value: '9000.00', nat: 'Norway',    league: 'E2E Premier' },
-  { name: 'Bruno Epico',      pos: PlayerPosition.MF, rating: '7.70', ovr: 77, rarity: 'epic',      value: '5000.00', nat: 'Portugal',  league: 'E2E Premier' },
-  { name: 'Nicolás Raro',     pos: PlayerPosition.DF, rating: '7.08', ovr: 70, rarity: 'rare',      value: '3000.00', nat: 'Argentina', league: 'E2E Liga'    },
-  { name: 'Dario Comun',      pos: PlayerPosition.GK, rating: '6.94', ovr: 69, rarity: 'common',    value: '1000.00', nat: 'Italy',     league: 'E2E Liga'    },
-  { name: 'Elias Truncado',   pos: PlayerPosition.FW, rating: '7.49', ovr: 74, rarity: 'rare',      value: '4000.00', nat: 'England',   league: 'E2E Premier' },
-  { name: 'Zoltan SinStats',  pos: PlayerPosition.MF, rating: null,   ovr: null, rarity: 'common',  value: '500.00',  nat: 'Hungary',   league: 'E2E Liga'    },
+  { name: 'Aaron Legend',        pos: PlayerPosition.FW, rating: '8.63', reputation: 91,   ovr: 91,   rarity: 'legendary', value: '9000.00', nat: 'Norway',    league: 'E2E Premier' },
+  { name: 'Bruno Epico',         pos: PlayerPosition.MF, rating: '7.70', reputation: 80,   ovr: 80,   rarity: 'epic',      value: '5000.00', nat: 'Portugal',  league: 'E2E Premier' },
+  { name: 'Nicolás Raro',        pos: PlayerPosition.DF, rating: '7.08', reputation: 70,   ovr: 70,   rarity: 'rare',      value: '3000.00', nat: 'Argentina', league: 'E2E Liga'    },
+  { name: 'Dario Comun',         pos: PlayerPosition.GK, rating: '6.94', reputation: 69,   ovr: 69,   rarity: 'common',    value: '1000.00', nat: 'Italy',     league: 'E2E Liga'    },
+  { name: 'Elias Truncado',      pos: PlayerPosition.FW, rating: '7.49', reputation: 79,   ovr: 79,   rarity: 'rare',      value: '4000.00', nat: 'England',   league: 'E2E Premier' },
+  { name: 'Pablo SinReputacion', pos: PlayerPosition.DF, rating: '8.10', reputation: null, ovr: null, rarity: 'common',    value: '2000.00', nat: 'Spain',     league: 'E2E Premier' },
+  { name: 'Zoltan SinStats',     pos: PlayerPosition.MF, rating: null,   reputation: 85,   ovr: 85,   rarity: 'epic',      value: '500.00',  nat: 'Hungary',   league: 'E2E Liga'    },
+  { name: 'Quique NoEnVenta',    pos: PlayerPosition.FW, rating: '7.90', reputation: 86,   ovr: 86,   rarity: 'epic',      value: '7000.00', nat: 'Spain',     league: 'E2E Premier' },
 ] as const;
 
-/** El listado solo incluye a los jugadores con estadísticas de la temporada vigente. */
-const LISTED_COUNT = FIXTURES.filter((f) => f.rating !== null).length;
+/** Jugadores sin ninguna carta a la venta: el Market no los muestra (08-sobres FR-070). */
+const NOT_FOR_SALE: readonly string[] = ['Quique NoEnVenta'];
+
+/**
+ * El listado solo incluye a los jugadores con estadísticas de la temporada vigente y con alguna
+ * carta a la venta.
+ */
+const LISTED_COUNT = FIXTURES.filter((f) => f.rating !== null && !NOT_FOR_SALE.includes(f.name)).length;
 
 describe('Players / Leagues (e2e)', () => {
   let app: INestApplication;
@@ -58,6 +71,9 @@ describe('Players / Leagues (e2e)', () => {
     await cleanDatabase();
     idsByName = await seed();
     await seedQuotes();
+    // Redis sobrevive entre corridas: una página cacheada por una corrida anterior (con otros
+    // ids o reputaciones) no debe responder por los datos recién sembrados.
+    await app.get(PlayerService).invalidateListCache();
     token = await registerAndLogin();
   });
 
@@ -67,6 +83,7 @@ describe('Players / Leagues (e2e)', () => {
   });
 
   async function cleanDatabase() {
+    await cleanPacksData(em);
     await em.nativeDelete(PlayerSeasonStats, {});
     // 07-cotizacion: las cotizaciones referencian al jugador; se borran antes.
     await em.nativeDelete(PlayerQuote, {});
@@ -97,6 +114,7 @@ describe('Players / Leagues (e2e)', () => {
         position: fixture.pos,
         baseValue: fixture.value,
         nationality: fixture.nat,
+        worldReputation: fixture.reputation,
         height: 180,
         team: teams.get(fixture.league)!,
         createdAt: new Date(),
@@ -126,6 +144,16 @@ describe('Players / Leagues (e2e)', () => {
 
     em.persist([...leagues.values(), ...teams.values()]);
     await em.flush();
+
+    // Cartas a la venta (08-sobres FR-070): sin ellas el Market no lista al jugador.
+    for (const fixture of FIXTURES) {
+      if (NOT_FOR_SALE.includes(fixture.name)) continue;
+      await em.execute(
+        `insert into "token" ("id", "player_id", "serial", "status", "owner_id", "pack_id", "created_at")
+         select gen_random_uuid(), ?, gs, 'en_venta_plataforma', null, null, now() from generate_series(1, 100) as gs`,
+        [ids.get(fixture.name)],
+      );
+    }
     return ids;
   }
 
@@ -210,7 +238,7 @@ describe('Players / Leagues (e2e)', () => {
       const legend = body.data.find((p: any) => p.name === 'Aaron Legend');
       expect(legend).toMatchObject({
         position: 'FW',
-        ovr: 86,
+        ovr: 91,
         rarity: 'legendary',
         goals: 10,
         assists: 5,
@@ -227,7 +255,6 @@ describe('Players / Leagues (e2e)', () => {
     it('no lista a los jugadores sin estadísticas de la temporada vigente', async () => {
       const { body } = await get('/players?limit=100').expect(200);
       expect(body.data.map((p: any) => p.name)).not.toContain('Zoltan SinStats');
-      expect(body.data.every((p: any) => p.ovr !== null)).toBe(true);
     });
 
     it('devuelve el código de bandera de las selecciones británicas (research #7)', async () => {
@@ -277,34 +304,39 @@ describe('Players / Leagues (e2e)', () => {
 
   // ---------------------------------------------------------------- E3
 
-  describe('E3 — el OVR deriva del rating (FR-027, FR-028)', () => {
+  describe('E3 — el OVR es la reputación cargada (08-sobres FR-067, FR-068)', () => {
     it.each([
-      ['Aaron Legend', 86],
-      ['Bruno Epico', 77],
+      ['Aaron Legend', 91],
+      ['Bruno Epico', 80],
       ['Nicolás Raro', 70],
       ['Dario Comun', 69],
-      ['Elias Truncado', 74],
+      ['Elias Truncado', 79],
     ])('%s tiene OVR %i', async (name, expected) => {
       const id = idsByName.get(name)!;
       const { body } = await get(`/players/${id}`).expect(200);
       expect(body.ovr).toBe(expected);
     });
 
-    it('el detalle expone el rating del que se deriva el OVR', async () => {
+    it('el detalle expone el rating, pero el OVR no sale de él', async () => {
       const { body } = await get(`/players/${idsByName.get('Elias Truncado')}`).expect(200);
       expect(Number(body.rating)).toBeCloseTo(7.49, 2);
-      // Trunca, no redondea: 7.49 da 74 y no 75.
-      expect(body.ovr).toBe(74);
+      expect(body.ovr).toBe(79);
+    });
+
+    it('un jugador sin reputación cargada tiene OVR nulo y rareza common', async () => {
+      const { body } = await get(`/players/${idsByName.get('Pablo SinReputacion')}`).expect(200);
+      expect(body.ovr).toBeNull();
+      expect(body.rarity).toBe('common');
     });
   });
 
   // ---------------------------------------------------------------- E4
 
-  describe('E4 — cortes de rareza (FR-029)', () => {
+  describe('E4 — cortes de rareza (08-sobres FR-016)', () => {
     it.each([
-      ['legendary', 85, 99],
-      ['epic', 77, 84],
-      ['rare', 70, 76],
+      ['legendary', 88, 99],
+      ['epic', 80, 87],
+      ['rare', 70, 79],
     ])('%s cae dentro de [%i, %i]', async (rarity, min, max) => {
       const { body } = await get(`/players?rarity=${rarity}&limit=100`).expect(200);
       expect(body.data.length).toBeGreaterThan(0);
@@ -315,10 +347,10 @@ describe('Players / Leagues (e2e)', () => {
       }
     });
 
-    it('common agrupa a los de OVR bajo (los sin estadísticas no se listan)', async () => {
+    it('common agrupa a los de OVR bajo y a los sin reputación (los sin estadísticas no se listan)', async () => {
       const { body } = await get('/players?rarity=common&limit=100').expect(200);
       const names = body.data.map((p: any) => p.name).sort();
-      expect(names).toEqual(['Dario Comun']);
+      expect(names).toEqual(['Dario Comun', 'Pablo SinReputacion']);
     });
 
     it('varias rarezas se unen', async () => {
@@ -330,17 +362,24 @@ describe('Players / Leagues (e2e)', () => {
 
   // ---------------------------------------------------------------- E5
 
-  describe('E5 — rango de OVR (FR-004, FR-030)', () => {
-    it('excluye a los de OVR menor y a los que no tienen OVR', async () => {
+  describe('E5 — rango de OVR (FR-004, 08-sobres FR-068)', () => {
+    it('excluye a los de OVR menor y a los que no tienen reputación', async () => {
       const { body } = await get('/players?minOvr=70&maxOvr=99&limit=100').expect(200);
+      const names = body.data.map((p: any) => p.name);
       expect(body.data.every((p: any) => p.ovr !== null && p.ovr >= 70)).toBe(true);
-      expect(body.data.map((p: any) => p.name)).not.toContain('Zoltan SinStats');
-      expect(body.data.map((p: any) => p.name)).not.toContain('Dario Comun');
+      expect(names).not.toContain('Zoltan SinStats');
+      expect(names).not.toContain('Dario Comun');
+      expect(names).not.toContain('Pablo SinReputacion');
     });
 
     it('el extremo superior es inclusivo', async () => {
-      const { body } = await get('/players?minOvr=86&maxOvr=86&limit=100').expect(200);
+      const { body } = await get('/players?minOvr=91&maxOvr=91&limit=100').expect(200);
       expect(body.data.map((p: any) => p.name)).toEqual(['Aaron Legend']);
+    });
+
+    it('solo un máximo también excluye a los que no tienen reputación', async () => {
+      const { body } = await get('/players?maxOvr=75&limit=100').expect(200);
+      expect(body.data.map((p: any) => p.name).sort()).toEqual(['Dario Comun', 'Nicolás Raro']);
     });
   });
 
@@ -550,6 +589,74 @@ describe('Players / Leagues (e2e)', () => {
       expect(body.map((l: any) => l.name)).toEqual(['E2E Liga', 'E2E Premier']);
       expect(body[0]).toMatchObject({ country: 'Testland' });
       expect(body[0].id).toBeDefined();
+    });
+  });
+
+  // ---------------------------------------------------------------- E14
+
+  describe('E14 — el Market muestra solo cartas a la venta (08-sobres FR-070)', () => {
+    it('no lista a un jugador sin ninguna carta a la venta', async () => {
+      const { body } = await get('/players?limit=100').expect(200);
+      expect(body.data.map((p: any) => p.name)).not.toContain('Quique NoEnVenta');
+      expect(body.meta.total).toBe(LISTED_COUNT);
+    });
+
+    it('el detalle de ese jugador sigue disponible (lo usan el inventario y las aperturas)', async () => {
+      const { body } = await get(`/players/${idsByName.get('Quique NoEnVenta')}`).expect(200);
+      expect(body).toMatchObject({ name: 'Quique NoEnVenta', ovr: 86 });
+    });
+
+    it('las cartas en sobres o en poder de usuarios no cuentan como a la venta', async () => {
+      const id = idsByName.get('Dario Comun')!;
+      await em.execute(`update "token" set "status" = 'en_sobre' where "player_id" = ?`, [id]);
+      await app.get(PlayerService).invalidateListCache();
+      try {
+        const { body } = await get('/players?limit=100').expect(200);
+        expect(body.data.map((p: any) => p.name)).not.toContain('Dario Comun');
+      } finally {
+        await em.execute(`update "token" set "status" = 'en_venta_plataforma' where "player_id" = ?`, [id]);
+        await app.get(PlayerService).invalidateListCache();
+      }
+    });
+
+    it('sin ninguna carta a la venta, el listado está vacío', async () => {
+      await em.execute(`update "token" set "status" = 'reservado'`);
+      await app.get(PlayerService).invalidateListCache();
+      try {
+        const { body } = await get('/players?limit=100').expect(200);
+        expect(body).toMatchObject({ data: [], meta: { total: 0 } });
+      } finally {
+        await em.execute(`update "token" set "status" = 'en_venta_plataforma'`);
+        await em.execute(
+          `update "token" t set "status" = 'reservado' from "player" p where p."id" = t."player_id" and p."full_name" in (${NOT_FOR_SALE.map(() => '?').join(', ')})`,
+          [...NOT_FOR_SALE],
+        );
+        await app.get(PlayerService).invalidateListCache();
+      }
+    });
+  });
+
+  // ---------------------------------------------------------------- E13
+
+  describe('E13 — una carga de reputación se ve de inmediato (08-sobres SC-020)', () => {
+    it('cambia OVR y rareza del listado sin esperar el TTL de la caché', async () => {
+      const id = idsByName.get('Dario Comun')!;
+      // Primera lectura: deja el listado en caché.
+      const before = await get('/players?search=Dario').expect(200);
+      expect(before.body.data[0]).toMatchObject({ ovr: 69, rarity: 'common' });
+
+      await request(app.getHttpServer())
+        .put(`/quotes/reputation/${id}`)
+        .set('x-api-key', process.env.ADMIN_API_KEY!)
+        .send({ worldReputation: 89 })
+        .expect(200);
+
+      try {
+        const after = await get('/players?search=Dario').expect(200);
+        expect(after.body.data[0]).toMatchObject({ ovr: 89, rarity: 'legendary' });
+      } finally {
+        await em.nativeUpdate(Player, { id }, { worldReputation: 69 });
+      }
     });
   });
 

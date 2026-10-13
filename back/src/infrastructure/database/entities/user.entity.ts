@@ -18,6 +18,14 @@ export class User {
   @Property({ type: 'string' })
   passwordHash!: string;
 
+  /**
+   * Saldo en créditos, entero y no negativo (08-sobres FR-004, FR-005): lo garantiza un CHECK en
+   * la base. Solo lo cambian los movimientos de `credits` y `packs`, que dejan su registro
+   * inmutable en `credit_movement`.
+   */
+  @Property({ type: 'integer', default: 0 })
+  credits: number = 0;
+
   @Property({ type: 'Date', onCreate: () => new Date() })
   createdAt!: Date;
 

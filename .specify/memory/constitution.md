@@ -1,5 +1,38 @@
 <!--
 SYNC IMPACT REPORT
+Version change: 3.3.0 -> 4.0.0
+Rationale: MAJOR bump - redefinicion incompatible de la regla "Tokens" de la seccion 5: se
+elimina la figura del superusuario. Disparado por /speckit-constitution al detectar que la spec
+08-sobres (revision 2, 2026-10-13) elimina el superusuario y pide explicitamente alinear la
+redaccion del §5 (Assumptions, "Sin superusuario"; FR-042, FR-043).
+Modified principles:
+  - 5. Reglas de Dominio de Negocio - "Tokens": los tokens sin dueno de usuario pertenecen a la
+    plataforma, que no es un usuario (sin credenciales, saldo ni inventario). La prohibicion de
+    comprar o vender tokens en poder de la plataforma admite una unica excepcion: los tokens que
+    vuelven desde un usuario (p. ej. cuenta eliminada) MAY ponerse a la venta segun la spec del
+    mercado y MUST NOT volver a los sobres. Se fija que la cantidad de 100 por jugador es
+    invariante (no se emiten de mas ni se destruyen).
+  - 5. Reglas de Dominio de Negocio - "Creditos": el saldo MUST NOT ser negativo; la entrega
+    inicial es una emision; lo cobrado por la plataforma sale de circulacion.
+Added sections: none
+Removed sections: none (se elimina el concepto "superusuario" dentro de §5)
+Deferred placeholders / TODOs: none
+Impact on dependent artifacts:
+  - 08-sobres/spec.md: ya cumple. Su linea "Depende de" cita la constitucion v3.2.0; debe pasar
+    a citar v4.0.0 (fuera del alcance de este comando - ver Next Actions). El supuesto "Sin
+    superusuario" queda resuelto.
+  - 08-sobres/checklists/requirements.md (linea 40): dice que los creditos cobrados "se
+    acreditan al superusuario"; contradice la spec rev. 2 y esta version - actualizar.
+  - Mencionan el superusuario solo en prosa (ninguna lo modela ni lo persiste); conviene
+    actualizar la redaccion a "plataforma" sin cambios de comportamiento:
+    07-cotizacion/spec.md (lineas 17, 19, 243, 245), 06-home (research.md, data-model.md,
+    contracts/home.openapi.yaml), 05-auth (spec.md linea 167, data-model.md linea 96) y el
+    comentario de back/src/modules/player/dto/player-response.dto.ts. El valor `supply.minted`
+    = 100 de la home sigue siendo correcto.
+  - front/package.json: sigue sin declarar `gsap` ni `@gsap/react` (pendiente de 3.3.0).
+  - Templates: none checked by this command (see Scope Guard).
+
+PREVIOUS AMENDMENT (3.3.0)
 Version change: 3.2.0 -> 3.3.0
 Rationale: MINOR bump - ampliacion explicita de la lista cerrada del stack de Frontend (seccion
 2), como esa lista exige, y ampliacion material de la regla de estilos. No se elimina ni
@@ -209,8 +242,8 @@ Cada vez que la IA genere código, debe contemplar por defecto los siguientes re
     *   Se debe realizar un manejo seguro de los tokens de autenticación y autorización.
 
 ## 5. Reglas de Dominio de Negocio
-*   **Tokens:** Existen 100 tokens por jugador, concentrados inicialmente en un único superusuario. Ninguno está a la venta de entrada: los usuarios los obtienen abriendo sobres, y el mercado está formado únicamente por los tokens que salieron en sobres. Los tokens que permanecen en poder del superusuario no se pueden comprar ni vender.
-*   **Créditos:** Los usuarios se registran con una cantidad inicial de créditos, que usan para abrir sobres y operar. Los créditos son números enteros.
+*   **Tokens:** Existen exactamente 100 tokens por jugador; esa cantidad es fija y ningún proceso emite tokens de más ni los destruye. Al emitirse, los tokens no tienen dueño de usuario: pertenecen a la **plataforma**, que no es un usuario (no tiene credenciales, saldo ni inventario). No existe un superusuario. Ningún token está a la venta de entrada: los usuarios los obtienen abriendo sobres, y el mercado arranca vacío, formado únicamente por los tokens que salieron en sobres. Un token en poder de la plataforma MUST NOT comprarse ni venderse, con una única excepción: un token que vuelve a la plataforma desde un usuario (por ejemplo, por la eliminación de su cuenta) MAY ser puesto a la venta por la plataforma según lo defina la spec del mercado, y MUST NOT volver a los sobres.
+*   **Créditos:** Los usuarios reciben al registrarse una cantidad inicial de créditos, que usan para abrir sobres y operar. Los créditos son números enteros y el saldo de un usuario MUST NOT ser negativo. La entrega inicial es una **emisión** de créditos; lo que la plataforma cobra (por ejemplo, al abrir un sobre) es ingreso de la plataforma, sale de circulación y no se acredita a ninguna cuenta.
 *   **Precio y momento cero:** No existe un valor fijo por token ni un precio inicial por defecto. El precio de un jugador lo determina el cálculo de su score. El «momento cero» de un token es el instante en que sale de un sobre, y se valúa con la cotización vigente del jugador en ese instante. Un jugador sin cálculo no tiene cotización y MUST NOT recibir un precio por defecto.
 *   **Cotización:** Es el precio del **jugador** (no del token) en créditos enteros, derivado exclusivamente de un **score** no negativo y **sin tope superior** (la escala de referencia va de 0 a 1, pero un jugador que supera la referencia alta puntúa por encima de 1 y su precio no tiene máximo), calculado como suma ponderada de métricas normalizadas. El modelo de valuación MUST admitir estrategias configurables y versionadas, basadas en métricas de performance con ponderaciones variables —positivas o negativas— y diferenciables por posición, e incluir métricas de contexto como la reputación mundial del jugador. El sistema MUST dejar traza, en cada cotización periódica, de la estrategia y versión utilizadas, del score y de su desglose por métrica.
 
@@ -294,4 +327,4 @@ datos que el backend expone en sus respuestas.
 *   Toda revisión de código (Pull Request) debe verificar el cumplimiento de esta constitución antes de ser aprobada.
 *   Cualquier excepción o complejidad que se aparte de estas reglas debe justificarse explícitamente en la spec o plan correspondiente.
 
-**Versión**: 3.3.0 | **Ratificada**: 2026-08-29 | **Última Enmienda**: 2026-10-13
+**Versión**: 4.0.0 | **Ratificada**: 2026-08-29 | **Última Enmienda**: 2026-10-13

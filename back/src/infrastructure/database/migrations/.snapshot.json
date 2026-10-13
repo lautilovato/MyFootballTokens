@@ -5,6 +5,265 @@
   ],
   "tables": [
     {
+      "name": "credit_movement",
+      "schema": "public",
+      "columns": {
+        "amount": {
+          "name": "amount",
+          "type": "int",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": false,
+          "unique": false,
+          "length": null,
+          "precision": null,
+          "scale": null,
+          "default": null,
+          "comment": null,
+          "collation": null,
+          "enumItems": [],
+          "mappedType": "integer"
+        },
+        "balance_after": {
+          "name": "balance_after",
+          "type": "int",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": false,
+          "unique": false,
+          "length": null,
+          "precision": null,
+          "scale": null,
+          "default": null,
+          "comment": null,
+          "collation": null,
+          "enumItems": [],
+          "mappedType": "integer"
+        },
+        "balance_before": {
+          "name": "balance_before",
+          "type": "int",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": false,
+          "unique": false,
+          "length": null,
+          "precision": null,
+          "scale": null,
+          "default": null,
+          "comment": null,
+          "collation": null,
+          "enumItems": [],
+          "mappedType": "integer"
+        },
+        "correlation_id": {
+          "name": "correlation_id",
+          "type": "varchar(255)",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": false,
+          "unique": false,
+          "length": 255,
+          "precision": null,
+          "scale": null,
+          "default": null,
+          "comment": null,
+          "collation": null,
+          "enumItems": [],
+          "mappedType": "string"
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamptz(6)",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": false,
+          "unique": false,
+          "length": 6,
+          "precision": null,
+          "scale": null,
+          "default": null,
+          "comment": null,
+          "collation": null,
+          "enumItems": [],
+          "mappedType": "datetime"
+        },
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": true,
+          "nullable": false,
+          "unique": false,
+          "length": null,
+          "precision": null,
+          "scale": null,
+          "default": null,
+          "comment": null,
+          "collation": null,
+          "enumItems": [],
+          "mappedType": "uuid"
+        },
+        "reference_id": {
+          "name": "reference_id",
+          "type": "uuid",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": true,
+          "unique": false,
+          "length": null,
+          "precision": null,
+          "scale": null,
+          "default": null,
+          "comment": null,
+          "collation": null,
+          "enumItems": [],
+          "mappedType": "uuid"
+        },
+        "reference_type": {
+          "name": "reference_type",
+          "type": "varchar(255)",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": true,
+          "unique": false,
+          "length": 255,
+          "precision": null,
+          "scale": null,
+          "default": null,
+          "comment": null,
+          "collation": null,
+          "enumItems": [],
+          "mappedType": "string"
+        },
+        "type": {
+          "name": "type",
+          "type": "text",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": false,
+          "unique": false,
+          "length": null,
+          "precision": null,
+          "scale": null,
+          "default": null,
+          "comment": null,
+          "collation": null,
+          "enumItems": [
+            "entrega_inicial",
+            "compra_sobre"
+          ],
+          "mappedType": "enum"
+        },
+        "user_id": {
+          "name": "user_id",
+          "type": "uuid",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": false,
+          "unique": true,
+          "length": null,
+          "precision": null,
+          "scale": null,
+          "default": null,
+          "comment": null,
+          "collation": null,
+          "enumItems": [],
+          "mappedType": "uuid"
+        }
+      },
+      "indexes": [
+        {
+          "columnNames": [
+            "id"
+          ],
+          "composite": false,
+          "constraint": true,
+          "keyName": "credit_movement_pkey",
+          "primary": true,
+          "unique": true
+        },
+        {
+          "columnNames": [
+            "user_id",
+            "created_at"
+          ],
+          "composite": true,
+          "constraint": false,
+          "keyName": "credit_movement_user_id_created_at_index",
+          "primary": false,
+          "unique": false
+        },
+        {
+          "columnNames": [
+            "user_id"
+          ],
+          "composite": false,
+          "constraint": false,
+          "keyName": "credit_movement_user_initial_unique",
+          "primary": false,
+          "unique": true,
+          "where": "type = 'entrega_inicial'::text"
+        }
+      ],
+      "checks": [
+        {
+          "name": "credit_movement_amount_check",
+          "expression": "amount <> 0",
+          "definition": "CHECK ((amount <> 0))",
+          "columnName": "amount"
+        },
+        {
+          "name": "credit_movement_balance_check",
+          "expression": "(balance_before >= 0) AND (balance_after >= 0) AND (balance_after = (balance_before + amount))",
+          "definition": "CHECK (((balance_before >= 0) AND (balance_after >= 0) AND (balance_after = (balance_before + amount))))",
+          "columnName": "amount"
+        },
+        {
+          "name": "credit_movement_type_check",
+          "expression": "\"type\" in ('entrega_inicial', 'compra_sobre')",
+          "definition": "check (\"type\" in ('entrega_inicial', 'compra_sobre'))",
+          "columnName": "type"
+        }
+      ],
+      "triggers": [
+        {
+          "name": "credit_movement_immutable",
+          "timing": "before",
+          "events": [
+            "delete",
+            "update"
+          ],
+          "forEach": "row",
+          "body": ""
+        }
+      ],
+      "foreignKeys": {
+        "credit_movement_user_id_foreign": {
+          "columnNames": [
+            "user_id"
+          ],
+          "constraintName": "credit_movement_user_id_foreign",
+          "localTableName": "public.credit_movement",
+          "referencedColumnNames": [
+            "id"
+          ],
+          "referencedTableName": "public.user"
+        }
+      },
+      "comment": null
+    },
+    {
       "name": "league",
       "schema": "public",
       "columns": {
@@ -139,6 +398,888 @@
       "checks": [],
       "triggers": [],
       "foreignKeys": {},
+      "comment": null
+    },
+    {
+      "name": "pack",
+      "schema": "public",
+      "columns": {
+        "batch_id": {
+          "name": "batch_id",
+          "type": "uuid",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": false,
+          "unique": false,
+          "length": null,
+          "precision": null,
+          "scale": null,
+          "default": null,
+          "comment": null,
+          "collation": null,
+          "enumItems": [],
+          "mappedType": "uuid"
+        },
+        "card_count": {
+          "name": "card_count",
+          "type": "smallint",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": false,
+          "unique": false,
+          "length": null,
+          "precision": null,
+          "scale": null,
+          "default": null,
+          "comment": null,
+          "collation": null,
+          "enumItems": [],
+          "mappedType": "smallint"
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamptz(6)",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": false,
+          "unique": false,
+          "length": 6,
+          "precision": null,
+          "scale": null,
+          "default": null,
+          "comment": null,
+          "collation": null,
+          "enumItems": [],
+          "mappedType": "datetime"
+        },
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": true,
+          "nullable": false,
+          "unique": false,
+          "length": null,
+          "precision": null,
+          "scale": null,
+          "default": null,
+          "comment": null,
+          "collation": null,
+          "enumItems": [],
+          "mappedType": "uuid"
+        },
+        "opened_at": {
+          "name": "opened_at",
+          "type": "timestamptz(6)",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": true,
+          "unique": false,
+          "length": 6,
+          "precision": null,
+          "scale": null,
+          "default": null,
+          "comment": null,
+          "collation": null,
+          "enumItems": [],
+          "mappedType": "datetime"
+        },
+        "status": {
+          "name": "status",
+          "type": "text",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": false,
+          "unique": false,
+          "length": null,
+          "precision": null,
+          "scale": null,
+          "default": null,
+          "comment": null,
+          "collation": null,
+          "enumItems": [
+            "sin_abrir",
+            "abierto"
+          ],
+          "mappedType": "enum"
+        },
+        "type": {
+          "name": "type",
+          "type": "text",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": false,
+          "unique": false,
+          "length": null,
+          "precision": null,
+          "scale": null,
+          "default": null,
+          "comment": null,
+          "collation": null,
+          "enumItems": [
+            "common",
+            "rare",
+            "epic",
+            "legendary"
+          ],
+          "mappedType": "enum"
+        }
+      },
+      "indexes": [
+        {
+          "columnNames": [
+            "batch_id"
+          ],
+          "composite": false,
+          "constraint": false,
+          "keyName": "pack_batch_id_index",
+          "primary": false,
+          "unique": false
+        },
+        {
+          "columnNames": [
+            "id"
+          ],
+          "composite": false,
+          "constraint": true,
+          "keyName": "pack_pkey",
+          "primary": true,
+          "unique": true
+        },
+        {
+          "columnNames": [
+            "type",
+            "id"
+          ],
+          "composite": true,
+          "constraint": false,
+          "keyName": "pack_unopened_type_index",
+          "primary": false,
+          "unique": false,
+          "where": "status = 'sin_abrir'::text"
+        }
+      ],
+      "checks": [
+        {
+          "name": "pack_card_count_check",
+          "expression": "card_count > 0",
+          "definition": "CHECK ((card_count > 0))",
+          "columnName": "card_count"
+        },
+        {
+          "name": "pack_opened_at_check",
+          "expression": "(status = 'abierto'::text) = (opened_at IS NOT NULL)",
+          "definition": "CHECK (((status = 'abierto'::text) = (opened_at IS NOT NULL)))",
+          "columnName": "opened_at"
+        },
+        {
+          "name": "pack_status_check",
+          "expression": "\"status\" in ('sin_abrir', 'abierto')",
+          "definition": "check (\"status\" in ('sin_abrir', 'abierto'))",
+          "columnName": "status"
+        },
+        {
+          "name": "pack_type_check",
+          "expression": "\"type\" in ('common', 'rare', 'epic', 'legendary')",
+          "definition": "check (\"type\" in ('common', 'rare', 'epic', 'legendary'))",
+          "columnName": "type"
+        }
+      ],
+      "triggers": [],
+      "foreignKeys": {
+        "pack_batch_id_foreign": {
+          "columnNames": [
+            "batch_id"
+          ],
+          "constraintName": "pack_batch_id_foreign",
+          "localTableName": "public.pack",
+          "referencedColumnNames": [
+            "id"
+          ],
+          "referencedTableName": "public.pack_batch"
+        }
+      },
+      "comment": null
+    },
+    {
+      "name": "pack_batch",
+      "schema": "public",
+      "columns": {
+        "composition": {
+          "name": "composition",
+          "type": "jsonb",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": false,
+          "unique": false,
+          "length": null,
+          "precision": null,
+          "scale": null,
+          "default": null,
+          "comment": null,
+          "collation": null,
+          "enumItems": [],
+          "mappedType": "json"
+        },
+        "correlation_id": {
+          "name": "correlation_id",
+          "type": "varchar(255)",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": false,
+          "unique": false,
+          "length": 255,
+          "precision": null,
+          "scale": null,
+          "default": null,
+          "comment": null,
+          "collation": null,
+          "enumItems": [],
+          "mappedType": "string"
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamptz(6)",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": false,
+          "unique": false,
+          "length": 6,
+          "precision": null,
+          "scale": null,
+          "default": null,
+          "comment": null,
+          "collation": null,
+          "enumItems": [],
+          "mappedType": "datetime"
+        },
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": true,
+          "nullable": false,
+          "unique": false,
+          "length": null,
+          "precision": null,
+          "scale": null,
+          "default": null,
+          "comment": null,
+          "collation": null,
+          "enumItems": [],
+          "mappedType": "uuid"
+        },
+        "number": {
+          "name": "number",
+          "type": "int",
+          "unsigned": false,
+          "autoincrement": true,
+          "primary": false,
+          "nullable": false,
+          "unique": true,
+          "length": null,
+          "precision": null,
+          "scale": null,
+          "default": null,
+          "comment": null,
+          "collation": null,
+          "enumItems": [],
+          "mappedType": "integer"
+        },
+        "params": {
+          "name": "params",
+          "type": "jsonb",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": false,
+          "unique": false,
+          "length": null,
+          "precision": null,
+          "scale": null,
+          "default": null,
+          "comment": null,
+          "collation": null,
+          "enumItems": [],
+          "mappedType": "json"
+        },
+        "token_count": {
+          "name": "token_count",
+          "type": "int",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": false,
+          "unique": false,
+          "length": null,
+          "precision": null,
+          "scale": null,
+          "default": null,
+          "comment": null,
+          "collation": null,
+          "enumItems": [],
+          "mappedType": "integer"
+        }
+      },
+      "indexes": [
+        {
+          "columnNames": [
+            "number"
+          ],
+          "composite": false,
+          "constraint": true,
+          "keyName": "pack_batch_number_unique",
+          "primary": false,
+          "unique": true
+        },
+        {
+          "columnNames": [
+            "id"
+          ],
+          "composite": false,
+          "constraint": true,
+          "keyName": "pack_batch_pkey",
+          "primary": true,
+          "unique": true
+        }
+      ],
+      "checks": [
+        {
+          "name": "pack_batch_token_count_check",
+          "expression": "(token_count > 0) AND ((token_count % 100) = 0)",
+          "definition": "CHECK (((token_count > 0) AND ((token_count % 100) = 0)))",
+          "columnName": "token_count"
+        }
+      ],
+      "triggers": [],
+      "foreignKeys": {},
+      "comment": null
+    },
+    {
+      "name": "pack_opening",
+      "schema": "public",
+      "columns": {
+        "balance_after": {
+          "name": "balance_after",
+          "type": "int",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": false,
+          "unique": false,
+          "length": null,
+          "precision": null,
+          "scale": null,
+          "default": null,
+          "comment": null,
+          "collation": null,
+          "enumItems": [],
+          "mappedType": "integer"
+        },
+        "balance_before": {
+          "name": "balance_before",
+          "type": "int",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": false,
+          "unique": false,
+          "length": null,
+          "precision": null,
+          "scale": null,
+          "default": null,
+          "comment": null,
+          "collation": null,
+          "enumItems": [],
+          "mappedType": "integer"
+        },
+        "card_count": {
+          "name": "card_count",
+          "type": "smallint",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": false,
+          "unique": false,
+          "length": null,
+          "precision": null,
+          "scale": null,
+          "default": null,
+          "comment": null,
+          "collation": null,
+          "enumItems": [],
+          "mappedType": "smallint"
+        },
+        "correlation_id": {
+          "name": "correlation_id",
+          "type": "varchar(255)",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": false,
+          "unique": false,
+          "length": 255,
+          "precision": null,
+          "scale": null,
+          "default": null,
+          "comment": null,
+          "collation": null,
+          "enumItems": [],
+          "mappedType": "string"
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamptz(6)",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": false,
+          "unique": false,
+          "length": 6,
+          "precision": null,
+          "scale": null,
+          "default": null,
+          "comment": null,
+          "collation": null,
+          "enumItems": [],
+          "mappedType": "datetime"
+        },
+        "credit_movement_id": {
+          "name": "credit_movement_id",
+          "type": "uuid",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": false,
+          "unique": false,
+          "length": null,
+          "precision": null,
+          "scale": null,
+          "default": null,
+          "comment": null,
+          "collation": null,
+          "enumItems": [],
+          "mappedType": "uuid"
+        },
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": true,
+          "nullable": false,
+          "unique": false,
+          "length": null,
+          "precision": null,
+          "scale": null,
+          "default": null,
+          "comment": null,
+          "collation": null,
+          "enumItems": [],
+          "mappedType": "uuid"
+        },
+        "pack_id": {
+          "name": "pack_id",
+          "type": "uuid",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": false,
+          "unique": true,
+          "length": null,
+          "precision": null,
+          "scale": null,
+          "default": null,
+          "comment": null,
+          "collation": null,
+          "enumItems": [],
+          "mappedType": "uuid"
+        },
+        "pack_type": {
+          "name": "pack_type",
+          "type": "text",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": false,
+          "unique": false,
+          "length": null,
+          "precision": null,
+          "scale": null,
+          "default": null,
+          "comment": null,
+          "collation": null,
+          "enumItems": [
+            "common",
+            "rare",
+            "epic",
+            "legendary"
+          ],
+          "mappedType": "enum"
+        },
+        "params": {
+          "name": "params",
+          "type": "jsonb",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": false,
+          "unique": false,
+          "length": null,
+          "precision": null,
+          "scale": null,
+          "default": null,
+          "comment": null,
+          "collation": null,
+          "enumItems": [],
+          "mappedType": "json"
+        },
+        "price": {
+          "name": "price",
+          "type": "int",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": false,
+          "unique": false,
+          "length": null,
+          "precision": null,
+          "scale": null,
+          "default": null,
+          "comment": null,
+          "collation": null,
+          "enumItems": [],
+          "mappedType": "integer"
+        },
+        "user_id": {
+          "name": "user_id",
+          "type": "uuid",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": false,
+          "unique": false,
+          "length": null,
+          "precision": null,
+          "scale": null,
+          "default": null,
+          "comment": null,
+          "collation": null,
+          "enumItems": [],
+          "mappedType": "uuid"
+        }
+      },
+      "indexes": [
+        {
+          "columnNames": [
+            "pack_id"
+          ],
+          "composite": false,
+          "constraint": true,
+          "keyName": "pack_opening_pack_id_unique",
+          "primary": false,
+          "unique": true
+        },
+        {
+          "columnNames": [
+            "id"
+          ],
+          "composite": false,
+          "constraint": true,
+          "keyName": "pack_opening_pkey",
+          "primary": true,
+          "unique": true
+        },
+        {
+          "columnNames": [
+            "user_id",
+            "created_at"
+          ],
+          "composite": true,
+          "constraint": false,
+          "keyName": "pack_opening_user_id_created_at_index",
+          "primary": false,
+          "unique": false,
+          "columns": [
+            {
+              "name": "user_id"
+            },
+            {
+              "name": "created_at",
+              "sort": "DESC"
+            }
+          ]
+        }
+      ],
+      "checks": [
+        {
+          "name": "pack_opening_balance_check",
+          "expression": "(price > 0) AND (balance_after >= 0) AND (balance_after = (balance_before - price))",
+          "definition": "CHECK (((price > 0) AND (balance_after >= 0) AND (balance_after = (balance_before - price))))",
+          "columnName": "balance_after"
+        },
+        {
+          "name": "pack_opening_pack_type_check",
+          "expression": "\"pack_type\" in ('common', 'rare', 'epic', 'legendary')",
+          "definition": "check (\"pack_type\" in ('common', 'rare', 'epic', 'legendary'))",
+          "columnName": "pack_type"
+        }
+      ],
+      "triggers": [
+        {
+          "name": "pack_opening_immutable",
+          "timing": "before",
+          "events": [
+            "delete",
+            "update"
+          ],
+          "forEach": "row",
+          "body": ""
+        }
+      ],
+      "foreignKeys": {
+        "pack_opening_credit_movement_id_foreign": {
+          "columnNames": [
+            "credit_movement_id"
+          ],
+          "constraintName": "pack_opening_credit_movement_id_foreign",
+          "localTableName": "public.pack_opening",
+          "referencedColumnNames": [
+            "id"
+          ],
+          "referencedTableName": "public.credit_movement"
+        },
+        "pack_opening_pack_id_foreign": {
+          "columnNames": [
+            "pack_id"
+          ],
+          "constraintName": "pack_opening_pack_id_foreign",
+          "localTableName": "public.pack_opening",
+          "referencedColumnNames": [
+            "id"
+          ],
+          "referencedTableName": "public.pack"
+        },
+        "pack_opening_user_id_foreign": {
+          "columnNames": [
+            "user_id"
+          ],
+          "constraintName": "pack_opening_user_id_foreign",
+          "localTableName": "public.pack_opening",
+          "referencedColumnNames": [
+            "id"
+          ],
+          "referencedTableName": "public.user"
+        }
+      },
+      "comment": null
+    },
+    {
+      "name": "pack_opening_card",
+      "schema": "public",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": true,
+          "nullable": false,
+          "unique": false,
+          "length": null,
+          "precision": null,
+          "scale": null,
+          "default": null,
+          "comment": null,
+          "collation": null,
+          "enumItems": [],
+          "mappedType": "uuid"
+        },
+        "opening_id": {
+          "name": "opening_id",
+          "type": "uuid",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": false,
+          "unique": true,
+          "length": null,
+          "precision": null,
+          "scale": null,
+          "default": null,
+          "comment": null,
+          "collation": null,
+          "enumItems": [],
+          "mappedType": "uuid"
+        },
+        "player_id": {
+          "name": "player_id",
+          "type": "uuid",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": false,
+          "unique": false,
+          "length": null,
+          "precision": null,
+          "scale": null,
+          "default": null,
+          "comment": null,
+          "collation": null,
+          "enumItems": [],
+          "mappedType": "uuid"
+        },
+        "quote_price": {
+          "name": "quote_price",
+          "type": "int",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": false,
+          "unique": false,
+          "length": null,
+          "precision": null,
+          "scale": null,
+          "default": null,
+          "comment": null,
+          "collation": null,
+          "enumItems": [],
+          "mappedType": "integer"
+        },
+        "rarity": {
+          "name": "rarity",
+          "type": "varchar(255)",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": false,
+          "unique": false,
+          "length": 255,
+          "precision": null,
+          "scale": null,
+          "default": null,
+          "comment": null,
+          "collation": null,
+          "enumItems": [],
+          "mappedType": "string"
+        },
+        "serial": {
+          "name": "serial",
+          "type": "smallint",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": false,
+          "unique": false,
+          "length": null,
+          "precision": null,
+          "scale": null,
+          "default": null,
+          "comment": null,
+          "collation": null,
+          "enumItems": [],
+          "mappedType": "smallint"
+        },
+        "token_id": {
+          "name": "token_id",
+          "type": "uuid",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": false,
+          "unique": false,
+          "length": null,
+          "precision": null,
+          "scale": null,
+          "default": null,
+          "comment": null,
+          "collation": null,
+          "enumItems": [],
+          "mappedType": "uuid"
+        }
+      },
+      "indexes": [
+        {
+          "columnNames": [
+            "opening_id",
+            "token_id"
+          ],
+          "composite": true,
+          "constraint": true,
+          "keyName": "pack_opening_card_opening_id_token_id_unique",
+          "primary": false,
+          "unique": true
+        },
+        {
+          "columnNames": [
+            "id"
+          ],
+          "composite": false,
+          "constraint": true,
+          "keyName": "pack_opening_card_pkey",
+          "primary": true,
+          "unique": true
+        }
+      ],
+      "checks": [],
+      "triggers": [
+        {
+          "name": "pack_opening_card_immutable",
+          "timing": "before",
+          "events": [
+            "delete",
+            "update"
+          ],
+          "forEach": "row",
+          "body": ""
+        }
+      ],
+      "foreignKeys": {
+        "pack_opening_card_opening_id_foreign": {
+          "columnNames": [
+            "opening_id"
+          ],
+          "constraintName": "pack_opening_card_opening_id_foreign",
+          "localTableName": "public.pack_opening_card",
+          "referencedColumnNames": [
+            "id"
+          ],
+          "referencedTableName": "public.pack_opening"
+        },
+        "pack_opening_card_player_id_foreign": {
+          "columnNames": [
+            "player_id"
+          ],
+          "constraintName": "pack_opening_card_player_id_foreign",
+          "localTableName": "public.pack_opening_card",
+          "referencedColumnNames": [
+            "id"
+          ],
+          "referencedTableName": "public.player"
+        },
+        "pack_opening_card_token_id_foreign": {
+          "columnNames": [
+            "token_id"
+          ],
+          "constraintName": "pack_opening_card_token_id_foreign",
+          "localTableName": "public.pack_opening_card",
+          "referencedColumnNames": [
+            "id"
+          ],
+          "referencedTableName": "public.token"
+        }
+      },
       "comment": null
     },
     {
@@ -447,17 +1588,6 @@
         },
         {
           "columnNames": [
-            "immutable_unaccent(full_name::text)"
-          ],
-          "composite": false,
-          "constraint": false,
-          "keyName": "player_full_name_unaccent_index",
-          "primary": false,
-          "unique": false,
-          "expression": "CREATE INDEX player_full_name_unaccent_index ON public.player USING btree (immutable_unaccent((full_name)::text))"
-        },
-        {
-          "columnNames": [
             "id"
           ],
           "composite": false,
@@ -465,6 +1595,16 @@
           "keyName": "player_pkey",
           "primary": true,
           "unique": true
+        },
+        {
+          "columnNames": [
+            "world_reputation"
+          ],
+          "composite": false,
+          "constraint": false,
+          "keyName": "player_world_reputation_index",
+          "primary": false,
+          "unique": false
         }
       ],
       "checks": [
@@ -1390,17 +2530,6 @@
           "keyName": "player_season_stats_player_id_season_unique",
           "primary": false,
           "unique": true
-        },
-        {
-          "columnNames": [
-            "season",
-            "rating"
-          ],
-          "composite": true,
-          "constraint": false,
-          "keyName": "player_season_stats_season_rating_index",
-          "primary": false,
-          "unique": false
         }
       ],
       "checks": [],
@@ -1898,6 +3027,589 @@
       "comment": null
     },
     {
+      "name": "token",
+      "schema": "public",
+      "columns": {
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamptz(6)",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": false,
+          "unique": false,
+          "length": 6,
+          "precision": null,
+          "scale": null,
+          "default": null,
+          "comment": null,
+          "collation": null,
+          "enumItems": [],
+          "mappedType": "datetime"
+        },
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": true,
+          "nullable": false,
+          "unique": false,
+          "length": null,
+          "precision": null,
+          "scale": null,
+          "default": null,
+          "comment": null,
+          "collation": null,
+          "enumItems": [],
+          "mappedType": "uuid"
+        },
+        "owner_id": {
+          "name": "owner_id",
+          "type": "uuid",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": true,
+          "unique": false,
+          "length": null,
+          "precision": null,
+          "scale": null,
+          "default": null,
+          "comment": null,
+          "collation": null,
+          "enumItems": [],
+          "mappedType": "uuid"
+        },
+        "pack_id": {
+          "name": "pack_id",
+          "type": "uuid",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": true,
+          "unique": false,
+          "length": null,
+          "precision": null,
+          "scale": null,
+          "default": null,
+          "comment": null,
+          "collation": null,
+          "enumItems": [],
+          "mappedType": "uuid"
+        },
+        "player_id": {
+          "name": "player_id",
+          "type": "uuid",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": false,
+          "unique": true,
+          "length": null,
+          "precision": null,
+          "scale": null,
+          "default": null,
+          "comment": null,
+          "collation": null,
+          "enumItems": [],
+          "mappedType": "uuid"
+        },
+        "serial": {
+          "name": "serial",
+          "type": "smallint",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": false,
+          "unique": false,
+          "length": null,
+          "precision": null,
+          "scale": null,
+          "default": null,
+          "comment": null,
+          "collation": null,
+          "enumItems": [],
+          "mappedType": "smallint"
+        },
+        "status": {
+          "name": "status",
+          "type": "text",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": false,
+          "unique": false,
+          "length": null,
+          "precision": null,
+          "scale": null,
+          "default": null,
+          "comment": null,
+          "collation": null,
+          "enumItems": [
+            "reservado",
+            "en_sobre",
+            "de_usuario",
+            "en_venta_plataforma"
+          ],
+          "mappedType": "enum"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamptz(6)",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": true,
+          "unique": false,
+          "length": 6,
+          "precision": null,
+          "scale": null,
+          "default": null,
+          "comment": null,
+          "collation": null,
+          "enumItems": [],
+          "mappedType": "datetime"
+        }
+      },
+      "indexes": [
+        {
+          "columnNames": [
+            "owner_id",
+            "player_id"
+          ],
+          "composite": true,
+          "constraint": false,
+          "keyName": "token_owned_index",
+          "primary": false,
+          "unique": false,
+          "where": "status = 'de_usuario'::text"
+        },
+        {
+          "columnNames": [
+            "pack_id"
+          ],
+          "composite": false,
+          "constraint": false,
+          "keyName": "token_pack_id_index",
+          "primary": false,
+          "unique": false
+        },
+        {
+          "columnNames": [
+            "id"
+          ],
+          "composite": false,
+          "constraint": true,
+          "keyName": "token_pkey",
+          "primary": true,
+          "unique": true
+        },
+        {
+          "columnNames": [
+            "player_id",
+            "serial"
+          ],
+          "composite": true,
+          "constraint": true,
+          "keyName": "token_player_id_serial_unique",
+          "primary": false,
+          "unique": true
+        },
+        {
+          "columnNames": [
+            "player_id"
+          ],
+          "composite": false,
+          "constraint": false,
+          "keyName": "token_reserved_player_index",
+          "primary": false,
+          "unique": false,
+          "where": "status = 'reservado'::text"
+        }
+      ],
+      "checks": [
+        {
+          "name": "token_owner_check",
+          "expression": "(status = 'de_usuario'::text) = (owner_id IS NOT NULL)",
+          "definition": "CHECK (((status = 'de_usuario'::text) = (owner_id IS NOT NULL)))",
+          "columnName": "owner_id"
+        },
+        {
+          "name": "token_serial_check",
+          "expression": "(serial >= 1) AND (serial <= 100)",
+          "definition": "CHECK (((serial >= 1) AND (serial <= 100)))",
+          "columnName": "serial"
+        },
+        {
+          "name": "token_status_check",
+          "expression": "\"status\" in ('reservado', 'en_sobre', 'de_usuario', 'en_venta_plataforma')",
+          "definition": "check (\"status\" in ('reservado', 'en_sobre', 'de_usuario', 'en_venta_plataforma'))",
+          "columnName": "status"
+        }
+      ],
+      "triggers": [],
+      "foreignKeys": {
+        "token_owner_id_foreign": {
+          "columnNames": [
+            "owner_id"
+          ],
+          "constraintName": "token_owner_id_foreign",
+          "localTableName": "public.token",
+          "referencedColumnNames": [
+            "id"
+          ],
+          "referencedTableName": "public.user"
+        },
+        "token_pack_id_foreign": {
+          "columnNames": [
+            "pack_id"
+          ],
+          "constraintName": "token_pack_id_foreign",
+          "localTableName": "public.token",
+          "referencedColumnNames": [
+            "id"
+          ],
+          "referencedTableName": "public.pack"
+        },
+        "token_player_id_foreign": {
+          "columnNames": [
+            "player_id"
+          ],
+          "constraintName": "token_player_id_foreign",
+          "localTableName": "public.token",
+          "referencedColumnNames": [
+            "id"
+          ],
+          "referencedTableName": "public.player"
+        }
+      },
+      "comment": null
+    },
+    {
+      "name": "token_event",
+      "schema": "public",
+      "columns": {
+        "correlation_id": {
+          "name": "correlation_id",
+          "type": "varchar(255)",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": false,
+          "unique": false,
+          "length": 255,
+          "precision": null,
+          "scale": null,
+          "default": null,
+          "comment": null,
+          "collation": null,
+          "enumItems": [],
+          "mappedType": "string"
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamptz(6)",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": false,
+          "unique": false,
+          "length": 6,
+          "precision": null,
+          "scale": null,
+          "default": null,
+          "comment": null,
+          "collation": null,
+          "enumItems": [],
+          "mappedType": "datetime"
+        },
+        "from_owner_id": {
+          "name": "from_owner_id",
+          "type": "uuid",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": true,
+          "unique": false,
+          "length": null,
+          "precision": null,
+          "scale": null,
+          "default": null,
+          "comment": null,
+          "collation": null,
+          "enumItems": [],
+          "mappedType": "uuid"
+        },
+        "from_status": {
+          "name": "from_status",
+          "type": "text",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": true,
+          "unique": false,
+          "length": null,
+          "precision": null,
+          "scale": null,
+          "default": null,
+          "comment": null,
+          "collation": null,
+          "enumItems": [
+            "reservado",
+            "en_sobre",
+            "de_usuario",
+            "en_venta_plataforma"
+          ],
+          "mappedType": "enum"
+        },
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": true,
+          "nullable": false,
+          "unique": false,
+          "length": null,
+          "precision": null,
+          "scale": null,
+          "default": null,
+          "comment": null,
+          "collation": null,
+          "enumItems": [],
+          "mappedType": "uuid"
+        },
+        "quote_price": {
+          "name": "quote_price",
+          "type": "int",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": true,
+          "unique": false,
+          "length": null,
+          "precision": null,
+          "scale": null,
+          "default": null,
+          "comment": null,
+          "collation": null,
+          "enumItems": [],
+          "mappedType": "integer"
+        },
+        "rarity": {
+          "name": "rarity",
+          "type": "varchar(255)",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": true,
+          "unique": false,
+          "length": 255,
+          "precision": null,
+          "scale": null,
+          "default": null,
+          "comment": null,
+          "collation": null,
+          "enumItems": [],
+          "mappedType": "string"
+        },
+        "reference_id": {
+          "name": "reference_id",
+          "type": "uuid",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": true,
+          "unique": false,
+          "length": null,
+          "precision": null,
+          "scale": null,
+          "default": null,
+          "comment": null,
+          "collation": null,
+          "enumItems": [],
+          "mappedType": "uuid"
+        },
+        "reference_type": {
+          "name": "reference_type",
+          "type": "varchar(255)",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": true,
+          "unique": false,
+          "length": 255,
+          "precision": null,
+          "scale": null,
+          "default": null,
+          "comment": null,
+          "collation": null,
+          "enumItems": [],
+          "mappedType": "string"
+        },
+        "to_owner_id": {
+          "name": "to_owner_id",
+          "type": "uuid",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": true,
+          "unique": false,
+          "length": null,
+          "precision": null,
+          "scale": null,
+          "default": null,
+          "comment": null,
+          "collation": null,
+          "enumItems": [],
+          "mappedType": "uuid"
+        },
+        "to_status": {
+          "name": "to_status",
+          "type": "text",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": false,
+          "unique": false,
+          "length": null,
+          "precision": null,
+          "scale": null,
+          "default": null,
+          "comment": null,
+          "collation": null,
+          "enumItems": [
+            "reservado",
+            "en_sobre",
+            "de_usuario",
+            "en_venta_plataforma"
+          ],
+          "mappedType": "enum"
+        },
+        "token_id": {
+          "name": "token_id",
+          "type": "uuid",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": false,
+          "unique": false,
+          "length": null,
+          "precision": null,
+          "scale": null,
+          "default": null,
+          "comment": null,
+          "collation": null,
+          "enumItems": [],
+          "mappedType": "uuid"
+        },
+        "type": {
+          "name": "type",
+          "type": "text",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": false,
+          "unique": false,
+          "length": null,
+          "precision": null,
+          "scale": null,
+          "default": null,
+          "comment": null,
+          "collation": null,
+          "enumItems": [
+            "emision",
+            "asignacion_a_sobre",
+            "entrega_en_sobre",
+            "devolucion_a_plataforma",
+            "puesta_en_venta"
+          ],
+          "mappedType": "enum"
+        }
+      },
+      "indexes": [
+        {
+          "columnNames": [
+            "id"
+          ],
+          "composite": false,
+          "constraint": true,
+          "keyName": "token_event_pkey",
+          "primary": true,
+          "unique": true
+        },
+        {
+          "columnNames": [
+            "to_owner_id"
+          ],
+          "composite": false,
+          "constraint": false,
+          "keyName": "token_event_to_owner_id_index",
+          "primary": false,
+          "unique": false,
+          "where": "to_owner_id IS NOT NULL"
+        },
+        {
+          "columnNames": [
+            "token_id",
+            "created_at"
+          ],
+          "composite": true,
+          "constraint": false,
+          "keyName": "token_event_token_id_created_at_index",
+          "primary": false,
+          "unique": false
+        }
+      ],
+      "checks": [
+        {
+          "name": "token_event_from_status_check",
+          "expression": "\"from_status\" in ('reservado', 'en_sobre', 'de_usuario', 'en_venta_plataforma')",
+          "definition": "check (\"from_status\" in ('reservado', 'en_sobre', 'de_usuario', 'en_venta_plataforma'))",
+          "columnName": "from_status"
+        },
+        {
+          "name": "token_event_to_status_check",
+          "expression": "\"to_status\" in ('reservado', 'en_sobre', 'de_usuario', 'en_venta_plataforma')",
+          "definition": "check (\"to_status\" in ('reservado', 'en_sobre', 'de_usuario', 'en_venta_plataforma'))",
+          "columnName": "to_status"
+        },
+        {
+          "name": "token_event_type_check",
+          "expression": "\"type\" in ('emision', 'asignacion_a_sobre', 'entrega_en_sobre', 'devolucion_a_plataforma', 'puesta_en_venta')",
+          "definition": "check (\"type\" in ('emision', 'asignacion_a_sobre', 'entrega_en_sobre', 'devolucion_a_plataforma', 'puesta_en_venta'))",
+          "columnName": "type"
+        }
+      ],
+      "triggers": [
+        {
+          "name": "token_event_immutable",
+          "timing": "before",
+          "events": [
+            "delete",
+            "update"
+          ],
+          "forEach": "row",
+          "body": ""
+        }
+      ],
+      "foreignKeys": {
+        "token_event_token_id_foreign": {
+          "columnNames": [
+            "token_id"
+          ],
+          "constraintName": "token_event_token_id_foreign",
+          "localTableName": "public.token_event",
+          "referencedColumnNames": [
+            "id"
+          ],
+          "referencedTableName": "public.token"
+        }
+      },
+      "comment": null
+    },
+    {
       "name": "user",
       "schema": "public",
       "columns": {
@@ -1917,6 +3629,23 @@
           "collation": null,
           "enumItems": [],
           "mappedType": "datetime"
+        },
+        "credits": {
+          "name": "credits",
+          "type": "int",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": false,
+          "unique": false,
+          "length": null,
+          "precision": null,
+          "scale": null,
+          "default": "0",
+          "comment": null,
+          "collation": null,
+          "enumItems": [],
+          "mappedType": "integer"
         },
         "email": {
           "name": "email",
@@ -2026,7 +3755,14 @@
           "unique": true
         }
       ],
-      "checks": [],
+      "checks": [
+        {
+          "name": "user_credits_check",
+          "expression": "credits >= 0",
+          "definition": "CHECK ((credits >= 0))",
+          "columnName": "credits"
+        }
+      ],
       "triggers": [],
       "foreignKeys": {},
       "comment": null
