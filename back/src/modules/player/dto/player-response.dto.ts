@@ -50,12 +50,14 @@ class SupplyDto {
 
 /**
  * Fila que devuelve el repositorio: el jugador, sus estadísticas de la temporada vigente y los
- * precios de sus últimas cotizaciones, del más viejo al más nuevo (vacío si nunca cotizó).
+ * precios de sus últimas cotizaciones, del más viejo al más nuevo. Si falta, el jugador no tiene
+ * cotizaciones: el repositorio siempre la completa, pero una fila armada a mano sin ella es
+ * válida y se trata como serie vacía.
  */
 export interface PlayerWithStats {
   player: Player;
   stats: PlayerSeasonStats | null;
-  priceSeries: number[];
+  priceSeries?: number[];
 }
 
 function toNumberOrNull(value: string | number | null | undefined): number | null {
@@ -128,7 +130,7 @@ export class PlayerCardDto {
   })
   priceHistory!: number[];
 
-  static fromEntity({ player, stats, priceSeries }: PlayerWithStats): PlayerCardDto {
+  static fromEntity({ player, stats, priceSeries = [] }: PlayerWithStats): PlayerCardDto {
     const dto = new PlayerCardDto();
     const marketValue = Number(player.baseValue);
     const movement = priceMovement(priceSeries);
