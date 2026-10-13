@@ -10,6 +10,8 @@ import {
 } from '../src/adapters/football-data/football-data.adapter';
 import { League } from '../src/infrastructure/database/entities/league.entity';
 import { Player, PlayerPosition } from '../src/infrastructure/database/entities/player.entity';
+import { PlayerQuote } from '../src/infrastructure/database/entities/player-quote.entity';
+import { QuoteRun } from '../src/infrastructure/database/entities/quote-run.entity';
 import { Team } from '../src/infrastructure/database/entities/team.entity';
 import { IngestionService } from '../src/modules/ingestion/ingestion.service';
 
@@ -89,6 +91,9 @@ describe('Ingestion (e2e)', () => {
 
   beforeEach(async () => {
     fakeAdapter.failingTeamExternalId = null;
+    // 07-cotizacion: las cotizaciones referencian al jugador; se borran antes.
+    await em.nativeDelete(PlayerQuote, {});
+    await em.nativeDelete(QuoteRun, {});
     await em.nativeDelete(Player, {});
     await em.nativeDelete(Team, {});
     await em.nativeDelete(League, {});

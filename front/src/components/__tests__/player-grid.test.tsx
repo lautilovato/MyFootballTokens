@@ -13,6 +13,7 @@ function apiPlayer(id: string, name: string): ApiPlayerCard {
     rarity: 'rare',
     club: { name: 'Arsenal FC', crestUrl: null },
     nationality: { name: 'England', code: 'gb-eng' },
+    imageUrl: null,
     goals: 3,
     assists: 2,
     marketValue: 1200,

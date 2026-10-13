@@ -17,6 +17,7 @@ const PLAYER: ApiPlayerDetail = {
   rarity: 'legendary',
   club: { name: 'Manchester City', crestUrl: null },
   nationality: { name: 'Norway', code: 'no' },
+  imageUrl: null,
   goals: 29,
   assists: 5,
   marketValue: 8450,
@@ -140,12 +141,56 @@ describe('PlayerDetailPanel', () => {
     fetchSpy.mockRestore();
   });
 
-  it('identifica la gráfica y la compra como maqueta (FR-023)', () => {
+  it('identifica la compra como maqueta y la gráfica ya no (FR-023)', () => {
     render(<PlayerDetailPanel player={PLAYER} loading={false} error={null} onClose={() => {}} />);
     const text = container.textContent ?? '';
-    expect(text).toContain('Maqueta');
     expect(text).toContain('No disponible');
     expect(text).toContain('todavía no está habilitada');
+    expect(text).not.toContain('Maqueta');
+    expect(text).not.toContain('simulad');
+  });
+
+  describe('historial de cotizaciones', () => {
+    const chart = () => container.querySelector('svg[aria-label="Historial de cotizaciones"]');
+
+    it('dibuja la serie real y resume cuántas cotizaciones son y su rango', () => {
+      const player = { ...PLAYER, priceHistory: [1000, 1500, 1200, 1800], changePct: 50 };
+      render(<PlayerDetailPanel player={player} loading={false} error={null} onClose={() => {}} />);
+
+      expect(chart()).not.toBeNull();
+      const polyline = container.querySelector('svg[aria-label="Historial de cotizaciones"] polyline');
+      expect(polyline?.getAttribute('points')?.split(' ')).toHaveLength(4);
+
+      const text = container.textContent ?? '';
+      expect(text).toContain('Últimas 4 cotizaciones');
+      expect(text).toContain('mín 1.000');
+      expect(text).toContain('máx 1.800');
+      expect(text).toContain('+50.0%');
+    });
+
+    it('una variación negativa se muestra con su signo', () => {
+      const player = { ...PLAYER, priceHistory: [2000, 1800], changePct: -10 };
+      render(<PlayerDetailPanel player={player} loading={false} error={null} onClose={() => {}} />);
+      expect(container.textContent).toContain('-10.0%');
+    });
+
+    it('con una sola cotización no hay gráfica y lo explica', () => {
+      const player = { ...PLAYER, priceHistory: [1000], changePct: 0 };
+      render(<PlayerDetailPanel player={player} loading={false} error={null} onClose={() => {}} />);
+
+      expect(chart()).toBeNull();
+      expect(container.textContent).toContain('Hay una sola cotización');
+    });
+
+    it('un jugador nunca cotizado no muestra gráfica ni una variación inventada', () => {
+      const player = { ...PLAYER, priceHistory: [], changePct: 0, marketValue: 0 };
+      render(<PlayerDetailPanel player={player} loading={false} error={null} onClose={() => {}} />);
+
+      expect(chart()).toBeNull();
+      const text = container.textContent ?? '';
+      expect(text).toContain('todavía no tiene cotizaciones');
+      expect(text).not.toContain('0.0%');
+    });
   });
 
   it('avisa el cierre del panel', () => {

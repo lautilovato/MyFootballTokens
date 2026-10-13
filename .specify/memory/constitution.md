@@ -1,22 +1,77 @@
 <!--
 SYNC IMPACT REPORT
-Version change: 2.1.0 -> 2.2.0
-Rationale: MINOR bump - incorpora dos herramientas a la lista de Frontend de la seccion 2
-sin redefinir ni eliminar nada. La lista sigue cerrada: solo gana dos entradas.
-Disparado durante /speckit-implement de la feature 05-auth, al detectar que el andamiaje
-de /front requiere jsdom para que Vitest pueda renderizar componentes (tareas T042, T056,
-T057) y oxlint para el script de lint que exige la tarea T006.
+Version change: 3.1.0 -> 3.2.0
+Rationale: MINOR bump - ampliacion material de la regla "Cotizacion" de la seccion 5: el score
+deja de estar acotado a [0,1]. Pasa a ser no negativo y sin tope superior, y por lo tanto el
+precio del jugador no tiene maximo. Es una relajacion: todo score entre 0 y 1 producido bajo
+3.0.0 o 3.1.0 sigue siendo valido. Motivo (decision del equipo, 2026-10-13): con el tope, los
+mejores jugadores quedaban empatados en el precio maximo y no se distinguian entre si.
 Modified principles:
-  - 2. Stack Tecnologico Estricto - ampliado (no redefinido): la entrada de Testing del
-    Frontend precisa que Vitest corre con jsdom como entorno de DOM, y se agrega una
-    entrada de Lint con oxlint, el mismo linter que ya usa el backend. La clausula de
-    librerias utilitarias sigue sin aplicar al Frontend: esta lista permanece cerrada y
-    todo agregado futuro sigue requiriendo enmienda explicita.
+  - 5. Reglas de Dominio de Negocio - "Cotizacion": el score ya no es "de 0 a 1"; es >= 0, sin
+    tope superior. La escala 0-1 queda como referencia de normalizacion (p5 -> 0, p95 -> 1).
 Added sections: none
 Removed sections: none
 Deferred placeholders / TODOs: none
-Templates requiring follow-up: none checked by this command (see Scope Guard - dependent
-templates read this file at runtime and are not modified here)
+Impact on dependent artifacts:
+  - 07-cotizacion (spec, plan, research, data-model, quickstart, contrato OpenAPI): actualizados
+    en el mismo cambio. Migration20261013144800 ensancha player_quote.score a numeric(9,4).
+  - Home (06-home): sus filtros de valor asumian precios de 100 a 1.000; deben revisarse.
+  - Sobres, venta y portfolio: no pueden asumir un precio maximo.
+
+PREVIOUS AMENDMENT (3.1.0)
+Version change: 3.0.0 -> 3.1.0
+Rationale: MINOR bump - amplia la capa de Adapters de la seccion 3 con un tercer proveedor
+externo sin redefinir ni eliminar nada. Disparado por /speckit-constitution al detectar que la
+rama feat/upload-images agrega /back/src/adapters/the-sports-db/ (imagenes de jugadores), un
+proveedor que la seccion 3 no enumeraba.
+Modified principles:
+  - 3. Reglas de Arquitectura y Patrones - "Adapters (APIs externas)" incluye TheSportsDB
+    (imagenes de jugadores) junto a WhoScored y Football-Data.org. La regla de Resiliencia
+    Externa aplica igual a este proveedor.
+  - 7. Estructura de Directorios - se agrega `/back/src/adapters/the-sports-db/` a los
+    ejemplos de la Capa de Adapters (no normativo).
+Added sections: none
+Removed sections: none
+Deferred placeholders / TODOs: none
+Impact on dependent artifacts:
+  - Feature de imagenes de jugadores (modulo player-images): no tiene spec en
+    .specify/specs/; queda regularizada a nivel constitucion, sin cambios de codigo.
+  - Specs 01 a 07: sin cambios requeridos.
+  - Templates: none checked by this command (see Scope Guard - dependent templates read
+    this file at runtime and are not modified here)
+
+PREVIOUS AMENDMENT (same date, not yet committed)
+Version change: 2.2.0 -> 3.0.0
+Rationale: MAJOR bump - redefinicion incompatible de las reglas de dominio de la seccion 5.
+La regla anterior (enunciado 3.3) fijaba un valor de 1 credito por token en el momento cero
+y los 100 tokens de cada jugador concentrados en el superusuario como oferta de mercado desde
+el inicio. Decision de diseno del equipo: el precio lo determina el calculo del score, los
+tokens no estan a la venta de entrada y el mercado esta formado solo por los tokens que
+salieron en sobres. Disparado durante /speckit-specify de la feature 07-cotizacion.
+Modified principles:
+  - 5. Reglas de Dominio de Negocio - "Tokens" redefinida (sin valor fijo de 1 credito; los
+    tokens llegan a los usuarios por sobres; el mercado son solo los tokens sacados en
+    sobres). "Cotizacion" redefinida: es el precio del jugador (no del token), en creditos
+    enteros, derivado exclusivamente de un score 0-1 (suma ponderada de metricas
+    normalizadas); estrategias configurables Y versionadas, con pesos positivos o negativos,
+    por posicion y con metricas de contexto como la reputacion mundial; la traza incluye
+    estrategia, version, score y desglose por metrica.
+  - 4. Requisitos No Funcionales - la auditoria financiera incluye la apertura de sobres.
+  - 6. Reglas de Comportamiento de la IA - la validacion previa de disponibilidad o saldos
+    alcanza tambien a la apertura de sobres.
+Added sections: none (se agregan en 5 las reglas "Creditos" y "Precio y momento cero")
+Removed sections: none
+Deferred placeholders / TODOs: none
+Impact on dependent artifacts:
+  - 07-cotizacion (spec.md): ya alineada con esta version (sin precio inicial fijo, precio
+    del jugador, score y desglose); se retira el aviso de desvio de sus Assumptions.
+  - Specs posteriores (sobres, venta, portfolio): deben respetar que solo circulan los
+    tokens obtenidos en sobres, que el precio de entrega sale de la cotizacion vigente y que
+    un jugador sin cotizacion no puede entregarse. La traduccion precio-de-jugador a
+    precio-de-token queda a cargo de la spec de venta.
+  - Specs 01 a 06: no mencionan el valor de 1 credito por token; sin cambios requeridos.
+  - Templates: none checked by this command (see Scope Guard - dependent templates read
+    this file at runtime and are not modified here)
 -->
 
 # Constitución del Proyecto: Mercado de Jugadores de Fútbol
@@ -85,7 +140,7 @@ sección 7:
 *   **Controllers:** Exclusivos para manejar peticiones HTTP/REST y exponer las APIs requeridas.
 *   **Services:** Encapsulan toda la lógica de negocio (cotizaciones, validación de mercado, portfolios).
 *   **Repositories:** Manejo de persistencia a través de MikroORM.
-*   **Adapters (APIs externas):** Capa de aislamiento estricta para el scraping de WhoScored y el consumo de Football-Data.org.
+*   **Adapters (APIs externas):** Capa de aislamiento estricta para el scraping de WhoScored, el consumo de Football-Data.org y el consumo de TheSportsDB (imágenes de jugadores).
 
 **Resiliencia Externa:**
 *   El sistema debe tolerar fallas de los proveedores externos.
@@ -99,7 +154,7 @@ Cada vez que la IA genere código, debe contemplar por defecto los siguientes re
     *   Es obligatorio el uso de Correlation IDs para garantizar la trazabilidad de las solicitudes entre los servicios.
     *   Implementar health checks y exponer métricas clave como latencia y tasa de error.
 *   **Auditoría Financiera:**
-    *   Se requiere un registro inmutable de todas las transacciones financieras (compra/venta de tokens).
+    *   Se requiere un registro inmutable de todas las transacciones financieras (apertura de sobres y compra/venta de tokens).
     *   Cada operación debe auditar: la identificación del autor de la acción, el detalle de los cambios con marca de tiempo, y el estado anterior y posterior al cambio.
 *   **Procesos Asíncronos (Scheduler):**
     *   Se requiere la implementación de un sistema de tareas programadas (job scheduler).
@@ -109,12 +164,14 @@ Cada vez que la IA genere código, debe contemplar por defecto los siguientes re
     *   Se debe realizar un manejo seguro de los tokens de autenticación y autorización.
 
 ## 5. Reglas de Dominio de Negocio
-*   **Tokens:** Existen 100 tokens iniciales por jugador, con un valor de 1 crédito en el momento cero, concentrados inicialmente en un único superusuario.
-*   **Cotización:** El modelo de valuación debe admitir estrategias configurables basadas en métricas de performance con ponderaciones variables (ej. goles, asistencias, minutos jugados). El sistema debe dejar traza de la estrategia utilizada en cada cotización periódica.
+*   **Tokens:** Existen 100 tokens por jugador, concentrados inicialmente en un único superusuario. Ninguno está a la venta de entrada: los usuarios los obtienen abriendo sobres, y el mercado está formado únicamente por los tokens que salieron en sobres. Los tokens que permanecen en poder del superusuario no se pueden comprar ni vender.
+*   **Créditos:** Los usuarios se registran con una cantidad inicial de créditos, que usan para abrir sobres y operar. Los créditos son números enteros.
+*   **Precio y momento cero:** No existe un valor fijo por token ni un precio inicial por defecto. El precio de un jugador lo determina el cálculo de su score. El «momento cero» de un token es el instante en que sale de un sobre, y se valúa con la cotización vigente del jugador en ese instante. Un jugador sin cálculo no tiene cotización y MUST NOT recibir un precio por defecto.
+*   **Cotización:** Es el precio del **jugador** (no del token) en créditos enteros, derivado exclusivamente de un **score** no negativo y **sin tope superior** (la escala de referencia va de 0 a 1, pero un jugador que supera la referencia alta puntúa por encima de 1 y su precio no tiene máximo), calculado como suma ponderada de métricas normalizadas. El modelo de valuación MUST admitir estrategias configurables y versionadas, basadas en métricas de performance con ponderaciones variables —positivas o negativas— y diferenciables por posición, e incluir métricas de contexto como la reputación mundial del jugador. El sistema MUST dejar traza, en cada cotización periódica, de la estrategia y versión utilizadas, del score y de su desglose por métrica.
 
 ## 6. Reglas de Comportamiento de la IA (Claude)
 *   Documentar todos los endpoints generados utilizando decoradores de `@nestjs/swagger`.
-*   Si un requerimiento afecta la base de datos de jugadores, la orden de compra/venta, o el portfolio de un usuario, siempre validar disponibilidad o saldos antes de ejecutar la transacción.
+*   Si un requerimiento afecta la base de datos de jugadores, la apertura de sobres, la orden de compra/venta, o el portfolio de un usuario, siempre validar disponibilidad de tokens o saldos antes de ejecutar la transacción.
 *   No generar implementaciones "mock" si existe una instrucción clara de usar el Adapter o MikroORM.
 
 ## 7. Estructura de Directorios y Arquitectura
@@ -150,7 +207,7 @@ palabra "exactamente" de arriba.
 La capa "Adapters (APIs externas)" de la sección 3 vive en una ruta propia, hermana de
 `/infrastructure/` y `/modules/`, agrupada por proveedor externo:
 *   `/back/src/adapters/<proveedor>/` (por ejemplo, `/back/src/adapters/football-data/`,
-    `/back/src/adapters/who-scored/`)
+    `/back/src/adapters/who-scored/`, `/back/src/adapters/the-sports-db/`)
 
 Cada adapter aísla el cliente HTTP y la normalización de la forma cruda del proveedor externo;
 los módulos de dominio que lo consumen solo conocen los tipos ya normalizados que el adapter
@@ -192,4 +249,4 @@ datos que el backend expone en sus respuestas.
 *   Toda revisión de código (Pull Request) debe verificar el cumplimiento de esta constitución antes de ser aprobada.
 *   Cualquier excepción o complejidad que se aparte de estas reglas debe justificarse explícitamente en la spec o plan correspondiente.
 
-**Versión**: 2.2.0 | **Ratificada**: 2026-08-29 | **Última Enmienda**: 2026-09-17
+**Versión**: 3.2.0 | **Ratificada**: 2026-08-29 | **Última Enmienda**: 2026-10-13

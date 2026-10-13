@@ -27,8 +27,11 @@ function format(value: unknown, suffix = ''): string {
   return `${value}${suffix}`;
 }
 
-/** Gráfica de la serie simulada. Deliberadamente sin ejes ni valores: no son datos reales. */
-function MockChart({ history }: { history: number[] }) {
+/**
+ * Gráfica de las últimas cotizaciones del jugador, del precio más viejo al más nuevo. Es una
+ * línea sin ejes: el rango y la cantidad de puntos se informan en el texto que la acompaña.
+ */
+function PriceChart({ history }: { history: number[] }) {
   if (history.length < 2) return null;
 
   const min = Math.min(...history);
@@ -43,18 +46,34 @@ function MockChart({ history }: { history: number[] }) {
     .join(' ');
 
   return (
-    <svg viewBox="0 0 100 40" className="h-20 w-full" role="img" aria-label="Serie simulada de 30 días">
+    <svg viewBox="0 0 100 40" className="h-20 w-full" role="img" aria-label="Historial de cotizaciones">
       <polyline points={points} fill="none" stroke="currentColor" strokeWidth="1.2" />
     </svg>
   );
 }
 
+const formatCredits = (value: number) => value.toLocaleString('es-AR');
+
+/**
+ * Resumen en texto de la serie de cotizaciones, para que la gráfica no dependa solo del color y
+ * de la forma de la línea. Con menos de dos cotizaciones no hay historial que graficar.
+ */
+function historySummary(history: number[]): string {
+  if (history.length < 2) {
+    return history.length === 0
+      ? 'Este jugador todavía no tiene cotizaciones.'
+      : 'Hay una sola cotización: todavía no hay historial para graficar.';
+  }
+  return `Últimas ${history.length} cotizaciones · mín ${formatCredits(Math.min(...history))} · máx ${formatCredits(Math.max(...history))}`;
+}
+
 /**
  * Panel lateral de detalle (US3).
  *
- * La gráfica de 30 días y el bloque de compra son MAQUETA (FR-023, FR-032, FR-033): no existe
- * motor de cotizaciones ni módulo de billetera. El selector y el botón van deshabilitados y
- * sin ningún manejador — ninguna interacción puede emitir una petición de compra.
+ * La gráfica sale de las cotizaciones reales del jugador (07-cotizacion). Lo único que sigue
+ * siendo MAQUETA es el bloque de compra (FR-032, FR-033): no existe módulo de billetera. El
+ * selector y el botón van deshabilitados y sin ningún manejador — ninguna interacción puede
+ * emitir una petición de compra.
  */
 export function PlayerDetailPanel({ player, loading, error, onClose }: PlayerDetailPanelProps) {
   return (
@@ -110,24 +129,28 @@ export function PlayerDetailPanel({ player, loading, error, onClose }: PlayerDet
             ))}
           </dl>
 
-          {/* ---- Desde acá todo es maqueta: sin datos reales detrás ---- */}
-          <section className="mb-5 rounded border border-dashed border-white/20 p-3">
+          <section className="mb-5 rounded border border-white/10 p-3" aria-label="Historial de cotizaciones">
             <div className="mb-1 flex items-baseline justify-between">
-              <h3 className="title-display text-xs text-slate-300">30-Day Market Value</h3>
-              <span className="text-[10px] uppercase tracking-wide text-gold">Maqueta</span>
+              <h3 className="title-display text-xs text-slate-300">Price History</h3>
+              {player.priceHistory.length >= 2 && (
+                <span className={player.changePct >= 0 ? 'text-xs text-neon-green' : 'text-xs text-error-red'}>
+                  {player.changePct > 0 ? '+' : ''}
+                  {player.changePct.toFixed(1)}%
+                </span>
+              )}
             </div>
             <div className={player.changePct >= 0 ? 'text-neon-green' : 'text-error-red'}>
-              <MockChart history={player.priceHistory} />
+              <PriceChart history={player.priceHistory} />
             </div>
-            <p className="mt-1 text-xs text-slate-500">
-              Datos simulados: todavía no existe el motor de cotizaciones.
-            </p>
+            <p className="mt-1 text-xs text-slate-500">{historySummary(player.priceHistory)}</p>
           </section>
+
+          {/* ---- Desde acá es maqueta: la compra no está habilitada ---- */}
 
           <dl className="mb-5 space-y-1 text-sm">
             <div className="flex justify-between">
               <dt className="text-slate-400">Market value</dt>
-              <dd className="text-slate-100">{player.marketValue.toLocaleString('es-AR')}</dd>
+              <dd className="text-slate-100">{formatCredits(player.marketValue)}</dd>
             </div>
             <div className="flex justify-between">
               <dt className="text-slate-400">Supply</dt>

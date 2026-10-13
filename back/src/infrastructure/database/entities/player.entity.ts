@@ -39,6 +39,29 @@ export class Player {
   @Property({ type: 'number', nullable: true })
   height?: number; // cm, atributo del jugador (no de temporada) — se completa una sola vez
 
+  /** Ilustración cartoon de TheSportsDB (`strCartoon`). Nulo si no se encontró o no tiene. */
+  @Property({ type: 'string', nullable: true })
+  imageUrl?: string;
+
+  /**
+   * Cuándo se buscó la imagen por última vez, haya o no resultado. Sin esto, los jugadores que
+   * TheSportsDB no conoce se reintentarían en cada corrida y agotarían el cupo de peticiones.
+   */
+  @Property({ type: 'Date', nullable: true })
+  imageCheckedAt?: Date;
+
+  /**
+   * Reputación mundial 0–100 (07-cotizacion FR-023): renombre del jugador más allá de sus
+   * números de la temporada. Nulo = sin cargar; el cálculo usa la reputación por defecto de la
+   * versión de estrategia. El rango lo garantiza un CHECK en la base.
+   */
+  @Property({ type: 'smallint', nullable: true })
+  worldReputation?: number | null;
+
+  /**
+   * Espejo del precio de la última cotización del jugador (07-cotizacion research #10). Solo lo
+   * reescribe la corrida de recálculo; la fuente de verdad es `player_quote`. 0 = nunca cotizado.
+   */
   @Property({ type: 'decimal', precision: 10, scale: 2 })
   baseValue!: string;
 

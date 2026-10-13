@@ -6,6 +6,8 @@ import { NormalizedStanding, WhoScoredAdapter } from '../src/adapters/who-scored
 import { WhoScoredBlockedException } from '../src/adapters/who-scored/who-scored.client';
 import { League } from '../src/infrastructure/database/entities/league.entity';
 import { Player } from '../src/infrastructure/database/entities/player.entity';
+import { PlayerQuote } from '../src/infrastructure/database/entities/player-quote.entity';
+import { QuoteRun } from '../src/infrastructure/database/entities/quote-run.entity';
 import { PlayerMatchStats } from '../src/infrastructure/database/entities/player-match-stats.entity';
 import { PlayerSeasonStats } from '../src/infrastructure/database/entities/player-season-stats.entity';
 import { Team } from '../src/infrastructure/database/entities/team.entity';
@@ -76,6 +78,9 @@ describe('TeamWhoScoredMatching (e2e)', () => {
     await em.nativeDelete(WhoScoredUnmatchedPlayer, {});
     await em.nativeDelete(PlayerMatchStats, {});
     await em.nativeDelete(PlayerSeasonStats, {});
+    // 07-cotizacion: las cotizaciones referencian al jugador; se borran antes.
+    await em.nativeDelete(PlayerQuote, {});
+    await em.nativeDelete(QuoteRun, {});
     await em.nativeDelete(Player, {});
     await em.nativeDelete(Team, {});
     await em.nativeDelete(League, {});

@@ -23,14 +23,18 @@ export interface ApiPlayerCard {
   rarity: Rarity;
   club: { name: string; crestUrl: string | null };
   nationality: { name: string | null; code: string | null };
+  /** Ilustración cartoon (PNG con fondo transparente). Nulo si todavía no se encontró. */
+  imageUrl: string | null;
   /** Nulo —no cero— cuando no hay estadísticas: "sin dato" es distinto de un cero real. */
   goals: number | null;
   assists: number | null;
+  /** Precio de la última cotización del jugador, en créditos. 0 si nunca fue cotizado. */
   marketValue: number;
-  /** SIMULADO mientras no exista el motor de cotizaciones. */
+  /** Variación de la última cotización respecto de la anterior (%). 0 con menos de dos cotizaciones. */
   changePct: number;
+  /** SIMULADO: la emisión por jugador todavía no sale de un módulo de tokens. */
   supply: { minted: number; total: number };
-  /** SIMULADO. 30 puntos, del más viejo al más nuevo. */
+  /** Precios de las últimas cotizaciones (hasta 30), del más viejo al más nuevo. Vacío si nunca cotizó. */
   priceHistory: number[];
 }
 

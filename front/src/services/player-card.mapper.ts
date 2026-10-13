@@ -12,7 +12,7 @@ import type { ApiPlayerCard } from './players.service';
  * Tres detalles leídos del código del componente:
  *  - `photoUrl` y `club.crestUrl` son opcionales: sin definir, dibuja su silueta y un escudo
  *    con iniciales. Se dejan sin definir en vez de inventar una URL que daría una imagen
- *    rota (FR-026).
+ *    rota (FR-026). `photoUrl` sale de `imageUrl`, la ilustración cartoon del backend.
  *  - `price.history` solo dibuja el sparkline con más de un punto; con menos lo omite.
  *  - `nationality.code` alimenta la URL de flagcdn. El backend ya lo manda traducido desde el
  *    nombre del país; si no pudo mapearlo viene nulo y acá se manda vacío para que la bandera
@@ -39,6 +39,7 @@ export function toPlayerCardData(player: ApiPlayerCard): PlayerCardData {
       name: player.nationality.name ?? 'Sin dato',
       code: player.nationality.code ?? '',
     },
+    ...(player.imageUrl ? { photoUrl: player.imageUrl } : {}),
     token: {
       rarity: player.rarity,
       supply: player.supply.total,
