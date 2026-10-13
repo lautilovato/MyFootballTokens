@@ -1,3 +1,4 @@
+import { randomUUID } from 'node:crypto';
 import { INestApplication, ValidationPipe } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import { EntityManager } from '@mikro-orm/postgresql';
@@ -5,8 +6,13 @@ import request from 'supertest';
 import { AppModule } from '../src/app.module';
 import { League } from '../src/infrastructure/database/entities/league.entity';
 import { Player, PlayerPosition } from '../src/infrastructure/database/entities/player.entity';
-import { PlayerQuote } from '../src/infrastructure/database/entities/player-quote.entity';
-import { QuoteRun } from '../src/infrastructure/database/entities/quote-run.entity';
+import { PlayerQuote, PositionProfile } from '../src/infrastructure/database/entities/player-quote.entity';
+import {
+  QuoteRun,
+  QuoteRunStatus,
+  QuoteRunTrigger,
+} from '../src/infrastructure/database/entities/quote-run.entity';
+import { ValuationStrategyVersion } from '../src/infrastructure/database/entities/valuation-strategy-version.entity';
 import { PlayerSeasonStats } from '../src/infrastructure/database/entities/player-season-stats.entity';
 import { Team } from '../src/infrastructure/database/entities/team.entity';
 import { User } from '../src/infrastructure/database/entities/user.entity';
@@ -51,6 +57,7 @@ describe('Players / Leagues (e2e)', () => {
     em = app.get(EntityManager);
     await cleanDatabase();
     idsByName = await seed();
+    await seedQuotes();
     token = await registerAndLogin();
   });
 
@@ -122,6 +129,59 @@ describe('Players / Leagues (e2e)', () => {
     return ids;
   }
 
+  /**
+   * Cotizaciones reales de algunos jugadores, para verificar que la carta y el detalle muestran
+   * la variación y la serie guardadas (07-cotizacion). En el sistema real el último precio
+   * coincide con `base_value` —el recálculo lo espeja—, por eso cada serie termina en el valor
+   * del fixture del jugador.
+   *
+   * Las filas se insertan en orden inverso a propósito: la serie tiene que salir ordenada por
+   * fecha de cálculo, no por orden de inserción.
+   */
+  async function seedQuotes(): Promise<void> {
+    const fork = em.fork();
+    const [version] = await fork.find(ValuationStrategyVersion, {}, { limit: 1 });
+    const runId = randomUUID();
+    await fork.insert(QuoteRun, {
+      id: runId,
+      trigger: QuoteRunTrigger.MANUAL,
+      status: QuoteRunStatus.COMPLETED,
+      startedAt: new Date(),
+      finishedAt: new Date(),
+      quotedCount: 0,
+      skippedCount: 0,
+      correlationId: 'e2e-players',
+    });
+
+    const series: Record<string, number[]> = {
+      'Bruno Epico': [3000, 4000, 4500, 5000],
+      'Nicolás Raro': [3000],
+      // 35 cotizaciones: la respuesta solo trae las últimas 30.
+      'Elias Truncado': Array.from({ length: 35 }, (_, i) => 3966 + i),
+    };
+
+    const rows = Object.entries(series).flatMap(([name, prices]) =>
+      prices.map((price, i) => ({
+        id: randomUUID(),
+        player: idsByName.get(name)!,
+        run: runId,
+        strategyVersion: version.id,
+        origin: QuoteRunTrigger.MANUAL,
+        season: SEASON,
+        score: '0.5000',
+        rawScore: '0.5000',
+        price,
+        positionProfile: PositionProfile.GENERAL,
+        positiveWeightSum: '1.0000',
+        breakdown: [],
+        usedDefaultReputation: false,
+        missingMatchesPlayed: false,
+        calculatedAt: new Date(Date.UTC(2026, 6, 1 + i * 7)),
+      })),
+    );
+    await fork.insertMany(PlayerQuote, rows.reverse() as never[]);
+  }
+
   async function registerAndLogin(): Promise<string> {
     const res = await request(app.getHttpServer())
       .post('/auth/register')
@@ -159,8 +219,9 @@ describe('Players / Leagues (e2e)', () => {
       });
       expect(legend.club).toEqual({ name: 'E2E Premier FC', crestUrl: null });
       expect(legend.nationality).toEqual({ name: 'Norway', code: 'no' });
-      expect(legend.priceHistory).toHaveLength(30);
-      expect(typeof legend.changePct).toBe('number');
+      // Sin cotizaciones guardadas no hay serie ni variación: no se inventan.
+      expect(legend.priceHistory).toEqual([]);
+      expect(legend.changePct).toBe(0);
     });
 
     it('no lista a los jugadores sin estadísticas de la temporada vigente', async () => {
@@ -416,8 +477,23 @@ describe('Players / Leagues (e2e)', () => {
 
   // ---------------------------------------------------------------- E10
 
-  describe('E10 — determinismo del mercado simulado (SC-011, research #5)', () => {
-    it('el mismo jugador da el mismo changePct en la grilla y en el detalle', async () => {
+  describe('E10 — variación y serie salen de las cotizaciones reales (SC-011)', () => {
+    it('la serie es la de las cotizaciones guardadas, ordenada por fecha de cálculo', async () => {
+      const { body } = await get(`/players/${idsByName.get('Bruno Epico')}`).expect(200);
+      expect(body.priceHistory).toEqual([3000, 4000, 4500, 5000]);
+    });
+
+    it('la variación compara la última cotización con la anterior', async () => {
+      const { body } = await get(`/players/${idsByName.get('Bruno Epico')}`).expect(200);
+      expect(body.changePct).toBe(11.1); // (5000 − 4500) / 4500
+    });
+
+    it('la serie termina en el valor de mercado que se muestra', async () => {
+      const { body } = await get(`/players/${idsByName.get('Bruno Epico')}`).expect(200);
+      expect(body.priceHistory[body.priceHistory.length - 1]).toBe(body.marketValue);
+    });
+
+    it('el mismo jugador da la misma variación y serie en la grilla y en el detalle', async () => {
       const id = idsByName.get('Bruno Epico')!;
       const lista = await get('/players?search=Bruno&limit=100').expect(200);
       const detalle = await get(`/players/${id}`).expect(200);
@@ -434,9 +510,32 @@ describe('Players / Leagues (e2e)', () => {
       expect(second.body.priceHistory).toEqual(first.body.priceHistory);
     });
 
-    it('la serie termina en el valor de mercado que se muestra', async () => {
-      const { body } = await get(`/players/${idsByName.get('Bruno Epico')}`).expect(200);
-      expect(body.priceHistory[body.priceHistory.length - 1]).toBe(body.marketValue);
+    it('con una sola cotización hay un punto y la variación es 0', async () => {
+      const { body } = await get(`/players/${idsByName.get('Nicolás Raro')}`).expect(200);
+      expect(body.priceHistory).toEqual([3000]);
+      expect(body.changePct).toBe(0);
+    });
+
+    it('un jugador nunca cotizado devuelve serie vacía y variación 0', async () => {
+      const { body } = await get(`/players/${idsByName.get('Aaron Legend')}`).expect(200);
+      expect(body.priceHistory).toEqual([]);
+      expect(body.changePct).toBe(0);
+    });
+
+    it('con más de 30 cotizaciones devuelve solo las últimas 30', async () => {
+      const { body } = await get(`/players/${idsByName.get('Elias Truncado')}`).expect(200);
+      expect(body.priceHistory).toHaveLength(30);
+      expect(body.priceHistory[0]).toBe(3971);
+      expect(body.priceHistory[29]).toBe(4000);
+    });
+
+    it('cada jugador de una misma página recibe su propia serie, sin mezclarlas', async () => {
+      const { body } = await get('/players?limit=100').expect(200);
+      const byName = (name: string) => body.data.find((p: any) => p.name === name);
+
+      expect(byName('Bruno Epico').priceHistory).toEqual([3000, 4000, 4500, 5000]);
+      expect(byName('Nicolás Raro').priceHistory).toEqual([3000]);
+      expect(byName('Aaron Legend').priceHistory).toEqual([]);
     });
   });
 

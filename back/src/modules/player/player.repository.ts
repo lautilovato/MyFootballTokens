@@ -5,6 +5,7 @@ import { PlayerSeasonStats } from '../../infrastructure/database/entities/player
 import { GetPlayersFilterDto } from './dto/get-players-filter.dto';
 import { PlayerWithStats } from './dto/player-response.dto';
 import { ratingLowerBoundForOvr, ratingUpperBoundForOvr } from './ovr';
+import { PRICE_HISTORY_POINTS } from './price-movement';
 import { ratingRangesForRarities } from './rarity';
 
 /** Fragmento de SQL parametrizado que se suma al WHERE del listado. */
@@ -180,16 +181,53 @@ export class PlayerRepository {
   ): Promise<PlayerWithStats[]> {
     if (players.length === 0) return [];
 
-    if (season === null) {
-      return players.map((player) => ({ player, stats: null }));
-    }
+    const playerIds = players.map((p) => p.id);
+    const priceSeries = await this.findPriceSeries(playerIds);
 
-    const stats = await this.em.getRepository(PlayerSeasonStats).find({
-      player: { $in: players.map((p) => p.id) },
-      season,
-    });
+    // Sin temporada cargada no hay estadísticas, pero un jugador cotizado sigue teniendo precios.
+    const stats =
+      season === null
+        ? []
+        : await this.em.getRepository(PlayerSeasonStats).find({
+            player: { $in: playerIds },
+            season,
+          });
 
     const byPlayerId = new Map(stats.map((s) => [s.player.id, s]));
-    return players.map((player) => ({ player, stats: byPlayerId.get(player.id) ?? null }));
+    return players.map((player) => ({
+      player,
+      stats: byPlayerId.get(player.id) ?? null,
+      priceSeries: priceSeries.get(player.id) ?? [],
+    }));
+  }
+
+  /**
+   * Precios de las últimas `PRICE_HISTORY_POINTS` cotizaciones de cada jugador, del más viejo al
+   * más nuevo, en UNA consulta para toda la página. Va aparte del listado por el mismo motivo que
+   * las estadísticas: un JOIN multiplicaría filas y rompería el conteo y el LIMIT.
+   */
+  private async findPriceSeries(playerIds: string[]): Promise<Map<string, number[]>> {
+    const series = new Map<string, number[]>();
+    if (playerIds.length === 0) return series;
+
+    const rows = await this.em.execute<{ player_id: string; price: number }[]>(
+      `select "player_id", "price"
+         from (
+           select "player_id", "price", "calculated_at",
+                  row_number() over (partition by "player_id" order by "calculated_at" desc) as "rn"
+             from "player_quote"
+            where "player_id" in (${playerIds.map(() => '?').join(', ')})
+         ) "q"
+        where "rn" <= ?
+        order by "player_id", "calculated_at" asc`,
+      [...playerIds, PRICE_HISTORY_POINTS],
+    );
+
+    for (const row of rows) {
+      const prices = series.get(row.player_id) ?? [];
+      prices.push(Number(row.price));
+      series.set(row.player_id, prices);
+    }
+    return series;
   }
 }
