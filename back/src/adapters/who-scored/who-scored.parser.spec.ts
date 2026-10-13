@@ -24,6 +24,14 @@ describe('WhoScoredParser', () => {
       });
     });
 
+    it('toma el nombre sin la posición de la fila que WhoScored mete dentro del link', () => {
+      const rows = parser.parseStatsGrid(loadFixture('squad-summary.html'));
+
+      // El link real contiene "<div class="table-ranking">1</div>" antes del nombre.
+      expect(rows[0].label).toBe('Bukayo Saka');
+      expect(rows[1].label).toBe('Martín Ødegaard');
+    });
+
     it('parsea la sub-pestaña Offensive con KeyP/Drb (dribbles completados)', () => {
       const rows = parser.parseStatsGrid(loadFixture('squad-offensive.html'));
 

@@ -48,11 +48,19 @@ export class PlayerRepository {
     const page = filter.page ?? 1;
     const limit = filter.limit ?? 20;
 
+    // El listado solo muestra jugadores con estadísticas de la temporada vigente: sin ellas la
+    // carta no tiene OVR ni métricas. Sin temporada cargada, entonces, no hay nadie que listar.
+    if (season === null) return [[], 0];
+
     const qb = this.em
       .createQueryBuilder(Player, 'p')
       .select('*')
       .leftJoinAndSelect('p.team', 't')
-      .leftJoinAndSelect('t.league', 'l');
+      .leftJoinAndSelect('t.league', 'l')
+      .where(
+        'exists (select 1 from "player_season_stats" "s0" where "s0"."player_id" = "p"."id" and "s0"."season" = ?)',
+        [season],
+      );
 
     if (filter.position?.length) {
       qb.andWhere({ position: { $in: filter.position } });
@@ -101,30 +109,17 @@ export class PlayerRepository {
   }
 
   /**
-   * Traduce los filtros de OVR y rareza a condiciones sobre `rating`. Sin temporada vigente
-   * no hay ninguna fila de estadísticas, así que cualquier filtro que exija un OVR no puede
-   * satisfacerse: se fuerza el conjunto vacío en lugar de ignorar el filtro en silencio.
+   * Traduce los filtros de OVR y rareza a condiciones sobre `rating`. Los jugadores sin
+   * estadísticas ya quedaron afuera del listado, así que todos los que llegan acá tienen OVR.
    */
-  private buildRatingConditions(
-    filter: GetPlayersFilterDto,
-    season: string | null,
-  ): SqlCondition[] {
+  private buildRatingConditions(filter: GetPlayersFilterDto, season: string): SqlCondition[] {
     const conditionsOut: SqlCondition[] = [];
     const ranges = ratingRangesForRarities(filter.rarity);
     const hasOvrFilter = filter.minOvr !== undefined || filter.maxOvr !== undefined;
 
     if (!hasOvrFilter && ranges.length === 0) return conditionsOut;
 
-    if (season === null) {
-      // Sin estadísticas cargadas nadie tiene OVR. `common` sigue matcheando a todos, porque
-      // un jugador sin rating es common (FR-030); el resto de los filtros no matchea a nadie.
-      const onlyCommon = ranges.length > 0 && ranges.every((r) => r.includeNull);
-      if (!onlyCommon) conditionsOut.push({ sql: '1 = 0', params: [] });
-      return conditionsOut;
-    }
-
     if (hasOvrFilter) {
-      // Un rango de OVR excluye a los jugadores sin estadísticas: no tienen OVR que comparar.
       const conditions = ['"s"."player_id" = "p"."id"', '"s"."season" = ?'];
       const params: unknown[] = [season];
 
@@ -160,18 +155,12 @@ export class PlayerRepository {
           rangeParams.push(range.max);
         }
 
-        const exists = `exists (select 1 from "player_season_stats" "s" where ${conditions.join(' and ')})`;
-
-        if (range.includeNull) {
-          // `common` abarca también a quien no tiene fila de estadísticas de esta temporada.
-          clauses.push(
-            `(${exists} or not exists (select 1 from "player_season_stats" "s2" where "s2"."player_id" = "p"."id" and "s2"."season" = ?))`,
-          );
-          params.push(...rangeParams, season);
-        } else {
-          clauses.push(`(${exists})`);
-          params.push(...rangeParams);
-        }
+        // `range.includeNull` (common incluye a quien no tiene rating) ya no aplica acá: los
+        // jugadores sin estadísticas no forman parte del listado.
+        clauses.push(
+          `(exists (select 1 from "player_season_stats" "s" where ${conditions.join(' and ')}))`,
+        );
+        params.push(...rangeParams);
       }
 
       conditionsOut.push({ sql: `(${clauses.join(' or ')})`, params });

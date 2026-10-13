@@ -35,6 +35,7 @@ export class PlayerStatsRepository {
   async upsertSeasonStats(player: Player, data: NormalizedSeasonStats): Promise<void> {
     const fields = {
       season: data.season,
+      matchesPlayed: data.matchesPlayed,
       goals: data.goals,
       assists: data.assists,
       shotsPerGame: data.shotsPerGame.toFixed(2),

@@ -52,9 +52,13 @@ export class WhoScoredParser {
           const cell = cells[index];
           if (cell) values[header] = $(cell).text().trim();
         }
+        // En la vista de plantel el link trae adentro la posición de la fila
+        // (`<div class="table-ranking">1</div>`) además del nombre (`span.iconize`):
+        // tomar todo el texto del link daba "1Nordi Mukiele" y rompía el matching.
+        const name = firstLink.find('.iconize').first().text().trim();
         return {
           href: firstLink.attr('href') ?? null,
-          label: firstLink.text().trim() || $(cells[0]).text().trim(),
+          label: name || firstLink.text().trim() || $(cells[0]).text().trim(),
           values,
         };
       })

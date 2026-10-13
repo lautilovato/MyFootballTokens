@@ -38,6 +38,8 @@ export interface ApiPlayerDetail extends ApiPlayerCard {
   league: string;
   season: string | null;
   height: number | null;
+  /** Partidos jugados en la temporada (titular + ingresos desde el banco). */
+  matchesPlayed: number | null;
   shotsPerGame: number | null;
   keyPasses: number | null;
   dribbles: number | null;

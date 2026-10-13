@@ -190,9 +190,6 @@ export function MarketFilters({ leagues, filters, onChange }: MarketFiltersProps
             className="bevel w-full bg-navy-card px-2 py-1 text-sm text-slate-100"
           />
         </div>
-        <p className="mt-2 text-xs text-slate-500">
-          Filtrar por OVR excluye a los jugadores sin estadísticas de temporada.
-        </p>
       </Section>
     </aside>
   );

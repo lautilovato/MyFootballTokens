@@ -12,7 +12,10 @@ export class PlayerSeasonStats {
   player!: Player;
 
   @Property({ type: 'string' })
-  season!: string; // "2025-2026"
+  season!: string;
+
+  @Property({ type: 'number', nullable: true })
+  matchesPlayed?: number | null;
 
   @Property({ type: 'number' })
   goals!: number;

@@ -53,7 +53,7 @@ class NotGreaterThan implements ValidatorConstraintInterface {
 
 export class GetPlayersFilterDto {
   @ApiPropertyOptional({
-    description: 'Nombre de liga. Repetible: ?league=Premier League&league=La Liga',
+    description: 'Nombre de liga. Repetible: ?league=Premier League&league=LaLiga',
     type: [String],
     example: ['Premier League'],
   })
