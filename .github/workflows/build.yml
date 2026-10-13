@@ -8,14 +8,11 @@ on:
 
 jobs:
   build:
-    name: Build, tests y SonarQube
+    name: Build y tests unitarios
     runs-on: ubuntu-latest
 
     steps:
       - uses: actions/checkout@v4
-        with:
-          # Sonar necesita el historial completo para calcular el código nuevo.
-          fetch-depth: 0
 
       # vitest 5 y @mikro-orm/core 7 exigen Node >= 22.
       - uses: actions/setup-node@v4
@@ -52,10 +49,15 @@ jobs:
         working-directory: front
         run: npm test -- --coverage
 
-      - name: SonarQube Scan
-        uses: SonarSource/sonarqube-scan-action@7006c4492b2e0ee0f816d36501671557c97f5995 # v8.1.0
-        env:
-          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+      - uses: actions/upload-artifact@v4
+        with:
+          name: coverage-back-unit
+          path: back/coverage/lcov.info
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: coverage-front
+          path: front/coverage/lcov.info
 
   e2e:
     name: Tests e2e (backend)
@@ -107,5 +109,44 @@ jobs:
       - name: Aplicar migraciones
         run: npm run migration:up
 
-      - name: Tests e2e
-        run: npm run test:e2e
+      # La cobertura de los e2e también va a Sonar: gran parte del back (repositorios,
+      # servicios, DTOs) solo se ejercita de punta a punta, contra Postgres y Redis reales.
+      - name: Tests e2e (con cobertura)
+        run: npm run test:e2e -- --coverage
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: coverage-back-e2e
+          path: back/coverage-e2e/lcov.info
+
+  sonarqube:
+    name: SonarQube
+    runs-on: ubuntu-latest
+    needs: [build, e2e]
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # Sonar necesita el historial completo para calcular el código nuevo.
+          fetch-depth: 0
+
+      # Cada reporte vuelve a la ruta que espera sonar-project.properties.
+      - uses: actions/download-artifact@v4
+        with:
+          name: coverage-back-unit
+          path: back/coverage
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: coverage-back-e2e
+          path: back/coverage-e2e
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: coverage-front
+          path: front/coverage
+
+      - name: SonarQube Scan
+        uses: SonarSource/sonarqube-scan-action@7006c4492b2e0ee0f816d36501671557c97f5995 # v8.1.0
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}

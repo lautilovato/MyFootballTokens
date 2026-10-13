@@ -4,7 +4,10 @@
     "json",
     "ts"
   ],
-  "rootDir": ".",
+  "rootDir": "..",
+  "roots": [
+    "<rootDir>/test"
+  ],
   "testEnvironment": "node",
   "testRegex": ".e2e-spec.ts$",
   "maxWorkers": 1,
@@ -28,6 +31,19 @@
     "^(\\.{1,2}/.*)\\.js$": "$1"
   },
   "setupFiles": [
-    "<rootDir>/setup-esm.ts"
+    "<rootDir>/test/setup-esm.ts"
+  ],
+  "collectCoverageFrom": [
+    "src/**/*.(t|j)s"
+  ],
+  "coverageDirectory": "./coverage-e2e",
+  "coverageReporters": [
+    "text-summary",
+    [
+      "lcov",
+      {
+        "projectRoot": ".."
+      }
+    ]
   ]
 }
