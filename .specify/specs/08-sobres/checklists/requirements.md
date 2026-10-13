@@ -2,6 +2,7 @@
 
 **Purpose**: Validate specification completeness and quality before proceeding to planning
 **Created**: 2026-10-13
+**Updated**: 2026-10-13 (revisión: catálogo de tipos de sobre + pantalla de sobres del cliente)
 **Feature**: [spec.md](../spec.md)
 
 ## Content Quality
@@ -31,10 +32,16 @@
 
 ## Notes
 
+- Decisiones del equipo en la revisión del 2026-10-13:
+  1. **Varios tipos de sobre** (FR-007 a FR-009, FR-020, FR-022): cada tipo con nombre, nivel visual, serie, precio, cantidad de cartas y probabilidades propias. Reemplaza la suposición anterior de un sobre único.
+  2. **Pantalla de sobres en alcance** (User Story 3, FR-039 a FR-048): saldo, catálogo, confirmación, apertura animada y revelación. Las pantallas de inventario e historial siguen fuera.
 - Decisiones tomadas por el autor de la spec que conviene revisar con el equipo antes de `/speckit-plan` (ninguna bloquea):
-  1. **Tokens insuficientes**: el sobre se rechaza sin cobrar; no se entregan sobres incompletos (FR-010).
-  2. **Destino de los créditos cobrados**: se acreditan al superusuario para conservar el total de créditos (FR-033).
-  3. **Valores por defecto** (1.000 créditos iniciales, sobre de 100 créditos con 5 cartas, probabilidades 70/20/8/2) y su equilibrio económico, a calibrar con la spec de venta.
-  4. **Sin interfaz de cliente**: la pantalla de sobres e inventario queda para una spec aparte.
-  5. **Sin clave de idempotencia**: cada apertura enviada es una apertura (edge case «Doble envío»).
-- Esta spec introduce el saldo de créditos y la emisión de 100 tokens por jugador, que la spec 07 dejó fuera de alcance y la constitución v3.2.0 (§5) ya prevé.
+  1. **Tokens insuficientes**: el sobre se rechaza sin cobrar; no se entregan sobres incompletos (FR-013).
+  2. **Destino de los créditos cobrados**: se acreditan al superusuario para conservar el total de créditos (FR-036).
+  3. **Valores por defecto**: 1.000 créditos iniciales y catálogo Estándar / Premium / Élite (ver Assumptions), con su equilibrio económico a calibrar con la spec de venta.
+  4. **Precio confirmado**: si el precio de un tipo cambia entre que el usuario lo ve y confirma, la apertura se rechaza sin cobrar (FR-011).
+  5. **Probabilidades visibles** en el catálogo y en la pantalla (FR-008, FR-040).
+  6. **Sin clave de idempotencia**: cada apertura enviada es una apertura; la pantalla bloquea una segunda apertura en curso (FR-044).
+  7. **Catálogo por configuración**, sin pantalla de administración.
+- Esta spec introduce el saldo de créditos y la emisión de 100 tokens por jugador, que la spec 07 dejó fuera de alcance y la constitución v3.3.0 (§5) ya prevé. La pantalla de sobres se apoya en §2 v3.3.0 (animaciones y CSS por componente).
+- Validación: se revisó la spec contra cada ítem en una iteración; las referencias a "endpoints" y "contrato de la API" (FR-052) y a componentes ya construidos (Assumptions) se mantienen como requisitos de trazabilidad exigidos por la constitución, no como diseño.

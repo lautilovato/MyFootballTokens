@@ -1,5 +1,33 @@
 <!--
 SYNC IMPACT REPORT
+Version change: 3.2.0 -> 3.3.0
+Rationale: MINOR bump - ampliacion explicita de la lista cerrada del stack de Frontend (seccion
+2), como esa lista exige, y ampliacion material de la regla de estilos. No se elimina ni
+redefine nada de forma incompatible. Disparado por /speckit-constitution al detectar en la rama
+feat/packs que los componentes Pack y ConfirmModal importan `gsap` y `@gsap/react` (fuera del
+stack) y traen hojas CSS propias junto a Tailwind. Decision del equipo (2026-10-13): autorizar
+GSAP y permitir CSS propio por componente con alcance acotado.
+Modified principles:
+  - 2. Stack Tecnologico Estricto / Frontend - "Estilos": Tailwind pasa a ser el mecanismo por
+    defecto. Se agrega la excepcion "CSS propio por componente" (un .css co-ubicado, importado
+    solo por su componente, clases con prefijo exclusivo, variables en la clase raiz). Las
+    paginas y el layout siguen siendo solo Tailwind. Regulariza PlayerCard.css (ya en main).
+  - 2. Stack Tecnologico Estricto / Frontend - nuevo item "Animaciones: GSAP" (`gsap` y
+    `@gsap/react`), solo en componentes presentacionales, via `useGSAP`, sin acceso a red ni a
+    services/, respetando `prefers-reduced-motion`.
+Added sections: none (se agrega el item "Animaciones" dentro de la lista de Frontend)
+Removed sections: none
+Deferred placeholders / TODOs: none
+Impact on dependent artifacts:
+  - front/package.json: NO declara `gsap` ni `@gsap/react`; deben agregarse para que el
+    build de feat/packs funcione (fuera del alcance de este comando - ver Next Actions).
+  - Pack.tsx, opening.ts, ConfirmModal.tsx y sus .css: ya cumplen las nuevas reglas (useGSAP,
+    reduced-motion, prefijos pk-/cm, sin :root).
+  - 08-sobres: su plan (aun no generado) debe referenciar esta version para el uso de GSAP.
+  - Specs 01 a 07: sin cambios requeridos.
+  - Templates: none checked by this command (see Scope Guard).
+
+PREVIOUS AMENDMENT (3.2.0)
 Version change: 3.1.0 -> 3.2.0
 Rationale: MINOR bump - ampliacion material de la regla "Cotizacion" de la seccion 5: el score
 deja de estar acotado a [0,1]. Pasa a ser no negativo y sin tope superior, y por lo tanto el
@@ -121,8 +149,25 @@ sección.
 *   **Build tool:** Vite.
 *   **Librería de UI:** React.
 *   **Ruteo:** React Router.
-*   **Estilos:** Tailwind CSS. No se incorporan otras librerías de estilos ni sistemas de
-    componentes de terceros.
+*   **Estilos:** Tailwind CSS es el mecanismo por defecto. No se incorporan otras librerías
+    de estilos, preprocesadores ni sistemas de componentes de terceros.
+    **Excepción — CSS propio por componente:** un componente de `components/` MAY tener un
+    único archivo `.css` co-ubicado (`components/<componente>/<Componente>.css`) cuando su
+    presentación requiere lo que Tailwind no expresa con claridad (keyframes complejos,
+    escalado por container queries, capas decorativas). Ese archivo MUST:
+    1.  ser importado solo por su propio componente;
+    2.  prefijar todas sus clases con un prefijo corto y exclusivo del componente (por
+        ejemplo `pc-` en `PlayerCard`, `pk-` en `Pack`), sin estilar selectores globales
+        ni de otros componentes;
+    3.  declarar sus variables CSS dentro de la clase raíz del componente, no en `:root`.
+
+    Las páginas (`pages/`) y el layout general se siguen estilando exclusivamente con
+    Tailwind.
+*   **Animaciones:** GSAP (`gsap` y `@gsap/react`). Se usa solo en componentes
+    presentacionales de `components/` y a través del hook `useGSAP`, que limpia las
+    animaciones al desmontar el componente. Los timelines no acceden a la red ni a
+    `services/`, y todo componente animado MUST respetar `prefers-reduced-motion`. No se
+    autoriza ninguna otra librería de animación.
 *   **Cliente HTTP:** Axios.
 *   **Estado global:** se resuelve con la Context API nativa de React. No se autoriza
     ninguna librería externa de manejo de estado.
@@ -249,4 +294,4 @@ datos que el backend expone en sus respuestas.
 *   Toda revisión de código (Pull Request) debe verificar el cumplimiento de esta constitución antes de ser aprobada.
 *   Cualquier excepción o complejidad que se aparte de estas reglas debe justificarse explícitamente en la spec o plan correspondiente.
 
-**Versión**: 3.2.0 | **Ratificada**: 2026-08-29 | **Última Enmienda**: 2026-10-13
+**Versión**: 3.3.0 | **Ratificada**: 2026-08-29 | **Última Enmienda**: 2026-10-13
