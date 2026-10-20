@@ -13,6 +13,9 @@ import {
 } from './shared/auth/auth.constants';
 import { LoggingModule } from './shared/logging/logging.module';
 import { AuthModule } from './modules/auth/auth.module';
+import { CreditsModule } from './modules/credits/credits.module';
+import { PacksModule } from './modules/packs/packs.module';
+import { TokensModule } from './modules/tokens/tokens.module';
 import { IngestionModule } from './modules/ingestion/ingestion.module';
 import { LeagueModule } from './modules/league/league.module';
 import { PlayerImagesModule } from './modules/player-images/player-images.module';
@@ -68,6 +71,10 @@ const observeImports =
     TeamWhoScoredMatchingModule,
     ValuationStrategyModule,
     QuotesModule,
+    // 08-sobres: créditos, tokens y sobres.
+    CreditsModule,
+    TokensModule,
+    PacksModule,
   ],
   controllers: [AppController],
   providers: [AppService],

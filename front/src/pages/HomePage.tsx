@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
+import { useCredits } from '../app/useCredits';
+import { AppHeader } from '../components/AppHeader';
 import { MarketFilters } from '../components/MarketFilters';
 import { PlayerDetailPanel } from '../components/PlayerDetailPanel';
 import { PlayerGrid } from '../components/PlayerGrid';
@@ -13,7 +15,13 @@ import {
   type PlayerFilters,
   type PlayersPage,
 } from '../services/players.service';
-import { SELECTED_PARAM, filtersFromParams, nextFilters, paramsFromFilters } from './home-filters';
+import {
+  SELECTED_PARAM,
+  filtersFromParams,
+  hasActiveFilters,
+  nextFilters,
+  paramsFromFilters,
+} from './home-filters';
 
 /**
  * Home de mercado (06-home). Orquesta: no implementa lógica de negocio ni habla con la red
@@ -23,6 +31,7 @@ import { SELECTED_PARAM, filtersFromParams, nextFilters, paramsFromFilters } fro
  */
 export default function HomePage() {
   const { user, logout } = useAuth();
+  const { balance } = useCredits();
   const [searchParams, setSearchParams] = useSearchParams();
 
   const filters = useMemo(() => filtersFromParams(searchParams), [searchParams]);
@@ -128,15 +137,8 @@ export default function HomePage() {
 
   return (
     <main className="min-h-screen bg-navy-deep text-slate-200">
-      <header className="flex flex-wrap items-center justify-between gap-3 border-b border-white/10 px-6 py-4">
-        <h1 className="title-display text-2xl text-neon-blue">MyFootballTokens</h1>
-        <div className="flex items-center gap-4 text-sm">
-          <span className="text-slate-400">{user?.username}</span>
-          <button onClick={logout} className="bevel bg-navy-card px-4 py-1 text-slate-200">
-            Cerrar sesion
-          </button>
-        </div>
-      </header>
+      {/* 08-sobres FR-052, FR-053: accesos a sobres e inventario y saldo. */}
+      <AppHeader username={user?.username} balance={balance} onLogout={logout} />
 
       <div className="flex flex-col gap-6 p-6 md:flex-row">
         <MarketFilters leagues={leagues} filters={filters} onChange={applyFilters} />
@@ -156,12 +158,25 @@ export default function HomePage() {
             </div>
           )}
 
-          {!loading && !error && page?.data.length === 0 && (
+          {!loading && !error && page?.data.length === 0 && hasActiveFilters(filters) && (
             <div className="py-12 text-center">
               <p className="title-display text-slate-300">Sin resultados</p>
               <p className="mt-1 text-sm text-slate-500">
                 Ningún jugador cumple con los filtros aplicados. Probá quitando alguno.
               </p>
+            </div>
+          )}
+
+          {/* 08-sobres FR-070: el Market solo muestra cartas a la venta, y arranca vacío. */}
+          {!loading && !error && page?.data.length === 0 && !hasActiveFilters(filters) && (
+            <div className="py-12 text-center">
+              <p className="title-display text-slate-300">Todavía no hay cartas a la venta</p>
+              <p className="mt-1 text-sm text-slate-500">
+                Las primeras cartas salen de los sobres.
+              </p>
+              <Link to="/packs" className="bevel mt-4 inline-block bg-neon-blue/20 px-5 py-2 text-neon-blue">
+                Ir a sobres
+              </Link>
             </div>
           )}
 

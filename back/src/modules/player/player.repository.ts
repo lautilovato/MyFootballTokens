@@ -2,11 +2,12 @@ import { Injectable } from '@nestjs/common';
 import { EntityManager } from '@mikro-orm/postgresql';
 import { Player } from '../../infrastructure/database/entities/player.entity';
 import { PlayerSeasonStats } from '../../infrastructure/database/entities/player-season-stats.entity';
+import { FOR_SALE_TOKEN_STATUSES } from '../../infrastructure/database/entities/token.entity';
 import { GetPlayersFilterDto } from './dto/get-players-filter.dto';
 import { PlayerWithStats } from './dto/player-response.dto';
-import { ratingLowerBoundForOvr, ratingUpperBoundForOvr } from './ovr';
+import { OVR_MAX } from './ovr';
 import { PRICE_HISTORY_POINTS } from './price-movement';
-import { ratingRangesForRarities } from './rarity';
+import { reputationRangesForRarities } from './rarity';
 
 /** Fragmento de SQL parametrizado que se suma al WHERE del listado. */
 interface SqlCondition {
@@ -15,16 +16,13 @@ interface SqlCondition {
 }
 
 /**
- * Los filtros por OVR y por rareza NO tocan ninguna columna de OVR: no existe. Se traducen a
- * rangos sobre `player_season_stats.rating`, que es exacto porque `OVR = trunc(rating × 10)`
- * es monótono y los cortes son enteros (research #1). El índice `(season, rating)` los
- * sostiene.
+ * Los filtros por OVR y por rareza comparan contra `player.world_reputation`: el OVR es la
+ * reputación cargada (08-sobres FR-067, research #12), así que no hace falta traducirlos a
+ * rangos de rating como en 06-home. El índice `player_world_reputation_index` los sostiene.
  *
- * La condición se expresa como subconsulta sobre `player_season_stats` en lugar de un JOIN:
- * un jugador con estadísticas de más de una temporada multiplicaría filas en un JOIN y
- * rompería el conteo y el LIMIT. Con `EXISTS`/`NOT EXISTS` la cardinalidad del resultado es
- * estructuralmente un jugador por fila, sin depender de que la restricción de temporada esté
- * bien puesta.
+ * La pertenencia a la temporada vigente se expresa como subconsulta sobre
+ * `player_season_stats` en lugar de un JOIN: un jugador con estadísticas de más de una
+ * temporada multiplicaría filas en un JOIN y rompería el conteo y el LIMIT.
  */
 @Injectable()
 export class PlayerRepository {
@@ -61,6 +59,12 @@ export class PlayerRepository {
       .where(
         'exists (select 1 from "player_season_stats" "s0" where "s0"."player_id" = "p"."id" and "s0"."season" = ?)',
         [season],
+      )
+      // El Market muestra solo jugadores con alguna carta a la venta (08-sobres FR-070). Mientras
+      // no exista ninguna —el mercado arranca vacío—, el listado está vacío.
+      .andWhere(
+        `exists (select 1 from "token" "tk" where "tk"."player_id" = "p"."id" and "tk"."status" in (${FOR_SALE_TOKEN_STATUSES.map(() => '?').join(', ')}))`,
+        [...FOR_SALE_TOKEN_STATUSES],
       );
 
     if (filter.position?.length) {
@@ -88,7 +92,7 @@ export class PlayerRepository {
       );
     }
 
-    for (const condition of this.buildRatingConditions(filter, season)) {
+    for (const condition of this.buildReputationConditions(filter)) {
       qb.andWhere(condition.sql, condition.params);
     }
 
@@ -110,58 +114,54 @@ export class PlayerRepository {
   }
 
   /**
-   * Traduce los filtros de OVR y rareza a condiciones sobre `rating`. Los jugadores sin
-   * estadísticas ya quedaron afuera del listado, así que todos los que llegan acá tienen OVR.
+   * Página de jugadores por id, con las mismas estadísticas y series de precios que el listado.
+   * Alimenta las cartas del inventario y de las aperturas (08-sobres research #13). Los ids
+   * inexistentes simplemente no aparecen.
    */
-  private buildRatingConditions(filter: GetPlayersFilterDto, season: string): SqlCondition[] {
+  async findManyByIds(ids: string[], season: string | null): Promise<PlayerWithStats[]> {
+    if (ids.length === 0) return [];
+    const players = await this.em
+      .getRepository(Player)
+      .find({ id: { $in: [...new Set(ids)] } }, { populate: ['team', 'team.league'] });
+    return this.attachStats(players, season);
+  }
+
+  /**
+   * Traduce los filtros de OVR y rareza a condiciones sobre `player.world_reputation` (FR-067).
+   *
+   * - Con un filtro de OVR activo, los jugadores sin reputación quedan afuera (FR-068): la
+   *   comparación contra NULL nunca es verdadera.
+   * - `maxOvr = 99` incluye la reputación 100, que se presenta como OVR 99.
+   * - La rareza `common` incluye a los jugadores sin reputación (FR-068).
+   */
+  private buildReputationConditions(filter: GetPlayersFilterDto): SqlCondition[] {
     const conditionsOut: SqlCondition[] = [];
-    const ranges = ratingRangesForRarities(filter.rarity);
-    const hasOvrFilter = filter.minOvr !== undefined || filter.maxOvr !== undefined;
 
-    if (!hasOvrFilter && ranges.length === 0) return conditionsOut;
-
-    if (hasOvrFilter) {
-      const conditions = ['"s"."player_id" = "p"."id"', '"s"."season" = ?'];
-      const params: unknown[] = [season];
-
-      if (filter.minOvr !== undefined) {
-        conditions.push('"s"."rating" >= ?');
-        params.push(ratingLowerBoundForOvr(filter.minOvr));
-      }
-      if (filter.maxOvr !== undefined) {
-        conditions.push('"s"."rating" < ?');
-        params.push(ratingUpperBoundForOvr(filter.maxOvr));
-      }
-
-      conditionsOut.push({
-        sql: `exists (select 1 from "player_season_stats" "s" where ${conditions.join(' and ')})`,
-        params,
-      });
+    if (filter.minOvr !== undefined) {
+      conditionsOut.push({ sql: '"p"."world_reputation" >= ?', params: [filter.minOvr] });
+    }
+    if (filter.maxOvr !== undefined) {
+      const upper = filter.maxOvr >= OVR_MAX ? Number.MAX_SAFE_INTEGER : filter.maxOvr;
+      conditionsOut.push({ sql: '"p"."world_reputation" <= ?', params: [upper] });
     }
 
+    const ranges = reputationRangesForRarities(filter.rarity);
     if (ranges.length > 0) {
       const clauses: string[] = [];
       const params: unknown[] = [];
 
       for (const range of ranges) {
-        const conditions = ['"s"."player_id" = "p"."id"', '"s"."season" = ?'];
-        const rangeParams: unknown[] = [season];
-
+        const conditions: string[] = [];
         if (range.min !== null) {
-          conditions.push('"s"."rating" >= ?');
-          rangeParams.push(range.min);
+          conditions.push('"p"."world_reputation" >= ?');
+          params.push(range.min);
         }
         if (range.max !== null) {
-          conditions.push('"s"."rating" < ?');
-          rangeParams.push(range.max);
+          conditions.push('"p"."world_reputation" < ?');
+          params.push(range.max);
         }
-
-        // `range.includeNull` (common incluye a quien no tiene rating) ya no aplica acá: los
-        // jugadores sin estadísticas no forman parte del listado.
-        clauses.push(
-          `(exists (select 1 from "player_season_stats" "s" where ${conditions.join(' and ')}))`,
-        );
-        params.push(...rangeParams);
+        const bounded = `(${conditions.join(' and ')})`;
+        clauses.push(range.includeNull ? `(${bounded} or "p"."world_reputation" is null)` : bounded);
       }
 
       conditionsOut.push({ sql: `(${clauses.join(' or ')})`, params });

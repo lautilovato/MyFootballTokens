@@ -1,0 +1,717 @@
+@import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@800;900&family=Barlow+Semi+Condensed:wght@500;600;700;800&display=swap');
+
+/*
+ * Igual que PlayerCard: todo en cqw (1% del ancho de .pk-root), así el sobre
+ * escala proporcionalmente dentro de cualquier grilla.
+ */
+.pk-root {
+  container-type: inline-size;
+  width: 100%;
+  max-width: var(--pk-max-width, 360px);
+  /* margen para el aura y el candado que sobresale */
+  padding: 6% 6% 10%;
+  box-sizing: border-box;
+
+  --ink: #eef8ff;
+  --muted: #8fa7c6;
+  --neon: #38d6ff;
+  --neon-soft: #a6efff;
+  --body: #071128;
+
+  font-family: 'Barlow Semi Condensed', 'Arial Narrow', system-ui, sans-serif;
+  color: var(--ink);
+}
+
+.pk-root *,
+.pk-root *::before,
+.pk-root *::after {
+  box-sizing: border-box;
+}
+
+/* ---------- tier (misma paleta que las cartas) ---------- */
+/* Hover por rareza: --hover-core es el color vivo (luces, líneas, filo del glow) y
+ * --hover-halo el resplandor difuso de alrededor. --hover-reach es cuánto se aleja ese
+ * resplandor del sobre (en cqw, subirlo lo expande). Sin data-tier = legendary. */
+.pk {
+  --hover-reach: 18cqw;
+  --accent-1: #ffe3a1;
+  --accent-2: #b5842f;
+  --hover-core: #ffd470;
+  --hover-halo: rgba(255, 168, 30, 0.7);
+}
+.pk[data-tier='epic'] {
+  --accent-1: #ecccff;
+  --accent-2: #7b3fd1;
+  --hover-core: #deb0ff;
+  --hover-halo: rgba(158, 84, 255, 0.7);
+}
+.pk[data-tier='rare'] {
+  --accent-1: #bfeaff;
+  --accent-2: #2f6fd6;
+  --hover-core: #7fd0ff;
+  --hover-halo: rgba(40, 128, 255, 0.7);
+}
+.pk[data-tier='common'] {
+  --accent-1: #eef1f6;
+  --accent-2: #7d8799;
+  --hover-core: #f4f7ff;
+  --hover-halo: rgba(196, 212, 240, 0.55);
+}
+
+/* --neon y --neon-soft se registran como color para poder transicionarlos: al hacer hover
+ * se redefinen con el color de la rareza y todo lo que los usa (muescas, línea de corte,
+ * icono del balón, foco) cambia con un fundido en vez de saltar. */
+@property --neon {
+  syntax: '<color>';
+  inherits: true;
+  initial-value: #38d6ff;
+}
+@property --neon-soft {
+  syntax: '<color>';
+  inherits: true;
+  initial-value: #a6efff;
+}
+
+/* ---------- sobre + tilt ---------- */
+.pk-float {
+  animation: pk-float 6s ease-in-out infinite;
+}
+
+.pk {
+  --rx: 0deg;
+  --ry: 0deg;
+  --mx: 50%;
+  --my: 30%;
+  --hyp: 0;
+
+  position: relative;
+  aspect-ratio: 5 / 8;
+  transform: perspective(1000px) rotateX(var(--rx)) rotateY(var(--ry));
+  transition:
+    transform 0.5s cubic-bezier(0.2, 0.8, 0.2, 1),
+    --neon 0.45s ease-out,
+    --neon-soft 0.45s ease-out;
+  will-change: transform;
+  user-select: none;
+  outline: none;
+}
+.pk[data-active='true'] {
+  --neon: var(--hover-core);
+  --neon-soft: color-mix(in srgb, var(--hover-core) 55%, #ffffff);
+  transition:
+    transform 0.08s linear,
+    --neon 0.45s ease-out,
+    --neon-soft 0.45s ease-out;
+}
+.pk:focus-visible {
+  outline: 0.6cqw solid var(--neon);
+  outline-offset: 2.4cqw;
+  border-radius: 4cqw;
+}
+.pk[role='button'] {
+  cursor: pointer;
+}
+
+/* halo de energía detrás del sobre */
+.pk__aura {
+  position: absolute;
+  inset: -6% -16%;
+  z-index: -1;
+  background:
+    radial-gradient(42% 40% at 50% 46%, rgba(56, 214, 255, 0.42), transparent 72%),
+    radial-gradient(30% 26% at 50% 70%, color-mix(in srgb, var(--accent-1) 22%, transparent), transparent 72%);
+  filter: blur(5cqw);
+  pointer-events: none;
+  animation: pk-breathe 4.5s ease-in-out infinite;
+}
+
+/* capa del color de la rareza: aparece con un fundido al hacer hover */
+.pk__aura::after {
+  content: '';
+  position: absolute;
+  /* sale del cuadro del aura: el difuminado del padre lo suaviza y el brillo se extiende más allá del sobre */
+  inset: -14% -26%;
+  background: radial-gradient(50% 48% at 50% 48%, var(--hover-halo), transparent 78%);
+  opacity: 0;
+  transition: opacity 0.45s ease-out;
+}
+.pk[data-active='true'] .pk__aura::after {
+  opacity: 1;
+}
+
+/* ---------- marco ----------
+ * Esquinas biseladas (--c) y una muesca en cada lateral (--n). Cada capa
+ * redefine las variables, así el mismo polígono sirve para todas. */
+.pk__frame,
+.pk__frame::before,
+.pk__frame::after,
+.pk__body {
+  position: absolute;
+  clip-path: polygon(
+    var(--c) 0, calc(100% - var(--c)) 0, 100% var(--c),
+    100% calc(38% - var(--n)), calc(100% - var(--n)) 38%,
+    calc(100% - var(--n)) 62%, 100% calc(62% + var(--n)),
+    100% calc(100% - var(--c)), calc(100% - var(--c)) 100%,
+    var(--c) 100%, 0 calc(100% - var(--c)),
+    0 calc(62% + var(--n)), var(--n) 62%,
+    var(--n) 38%, 0 calc(38% - var(--n)),
+    0 var(--c)
+  );
+}
+
+/* el glow va en el padre porque clip-path lo cortaría */
+.pk__glow {
+  position: absolute;
+  inset: 0;
+  filter: drop-shadow(0 0 0.7cqw rgba(56, 214, 255, 0.95)) drop-shadow(0 0 5cqw rgba(30, 140, 255, 0.45));
+  transition: filter 0.45s ease-out;
+}
+.pk[data-active='true'] .pk__glow {
+  filter: drop-shadow(0 0 1cqw var(--hover-core)) drop-shadow(0 0 7cqw var(--hover-halo))
+    drop-shadow(0 0 var(--hover-reach) var(--hover-halo));
+}
+
+.pk__frame {
+  --c: 9cqw;
+  --n: 2.6cqw;
+  inset: 0;
+  background: linear-gradient(150deg, #c4f5ff, #1c64b0 22%, #86e6ff 46%, #10397a 70%, #a8eeff);
+  background-size: 220% 220%;
+  background-position: calc(100% - var(--mx) * 1.2) calc(100% - var(--my) * 1.2);
+  transition: background-position 0.5s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+.pk[data-active='true'] .pk__frame {
+  transition: background-position 0.08s linear;
+}
+.pk__frame::before {
+  content: '';
+  --c: 8.6cqw;
+  --n: 2.2cqw;
+  inset: 0.8cqw;
+  background: linear-gradient(170deg, #1b2e55 0%, #0a1430 35%, #0b1834 70%, #182a50 100%);
+}
+/* filo de color de la rareza */
+.pk__frame::after {
+  content: '';
+  --c: 7.8cqw;
+  --n: 1.5cqw;
+  inset: 2.5cqw;
+  background: linear-gradient(160deg, var(--accent-1), var(--accent-2) 30%, var(--accent-1) 55%, var(--accent-2) 80%, var(--accent-1));
+}
+
+/* luces en las muescas laterales */
+.pk__notch {
+  position: absolute;
+  top: 41%;
+  height: 18%;
+  width: 0.8cqw;
+  border-radius: 1cqw;
+  background: var(--neon-soft);
+  box-shadow: 0 0 1cqw var(--neon), 0 0 3cqw color-mix(in srgb, var(--neon) 60%, transparent);
+  pointer-events: none;
+}
+.pk__notch--l {
+  left: 1.2cqw;
+}
+.pk__notch--r {
+  right: 1.2cqw;
+}
+
+/* ---------- cuerpo ---------- */
+.pk__body {
+  --c: 7.5cqw;
+  --n: 1.2cqw;
+  inset: 3cqw;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  overflow: hidden;
+  /* las capas de brillo usan mix-blend-mode: sin esto sangran sobre el marco */
+  isolation: isolate;
+  background:
+    radial-gradient(70% 40% at 50% 38%, rgba(56, 214, 255, 0.3), transparent 72%),
+    radial-gradient(90% 50% at 50% 104%, color-mix(in srgb, var(--accent-2) 26%, transparent), transparent 70%),
+    linear-gradient(180deg, #0b1a3c 0%, var(--body) 50%, #040a1c 100%);
+}
+/* grilla técnica de fondo, se desvanece hacia los bordes */
+.pk__body::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  background-image:
+    linear-gradient(rgba(120, 210, 255, 0.09) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(120, 210, 255, 0.09) 1px, transparent 1px);
+  background-size: 6cqw 6cqw;
+  background-position: center;
+  -webkit-mask-image: radial-gradient(75% 55% at 50% 42%, #000 25%, transparent 85%);
+  mask-image: radial-gradient(75% 55% at 50% 42%, #000 25%, transparent 85%);
+}
+
+/* tira superior con la línea de corte */
+.pk__seal {
+  position: relative;
+  flex: 0 0 auto;
+  width: 100%;
+  height: 16cqw;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 6cqw;
+}
+.pk__seal::after {
+  content: '';
+  position: absolute;
+  left: 3cqw;
+  right: 3cqw;
+  bottom: 0;
+  height: 0.35cqw;
+  background: repeating-linear-gradient(90deg, var(--neon-soft) 0 1.6cqw, transparent 1.6cqw 2.8cqw);
+  opacity: 0.55;
+  filter: drop-shadow(0 0 0.6cqw var(--neon));
+}
+
+.pk__corner {
+  display: grid;
+  place-items: center;
+  width: 9.5cqw;
+  aspect-ratio: 1;
+  padding: 1.6cqw;
+  border-radius: 2cqw;
+  border: 0.4cqw solid currentColor;
+  background: radial-gradient(circle at 50% 35%, color-mix(in srgb, currentColor 22%, transparent), rgba(5, 12, 30, 0.9) 75%);
+  box-shadow: 0 0 1.6cqw color-mix(in srgb, currentColor 55%, transparent),
+    inset 0 0 1.4cqw color-mix(in srgb, currentColor 30%, transparent);
+}
+.pk__corner svg {
+  width: 100%;
+  height: 100%;
+}
+.pk__corner--neon {
+  color: var(--neon);
+}
+.pk__corner--accent {
+  color: var(--accent-1);
+}
+
+.pk__stars {
+  display: flex;
+  gap: 1cqw;
+  align-items: center;
+}
+.pk__star {
+  width: 5.6cqw;
+  fill: var(--accent-1);
+  filter: drop-shadow(0 0 0.8cqw color-mix(in srgb, var(--accent-1) 80%, transparent));
+}
+/* la del medio un poco más grande y más alta, como en las insignias */
+.pk__star:nth-child(2):not(:last-child) {
+  width: 6.6cqw;
+  transform: translateY(-0.8cqw);
+}
+
+/* escudo */
+.pk__emblem {
+  flex: 0 0 auto;
+  width: 62cqw;
+  /* margen auto arriba y abajo: el bloque escudo+título queda centrado en el espacio libre */
+  margin-top: auto;
+  overflow: visible;
+  filter: drop-shadow(0 0 1.2cqw rgba(56, 214, 255, 0.65)) drop-shadow(0 1cqw 2cqw rgba(0, 0, 0, 0.6));
+}
+.pk__figure {
+  filter: drop-shadow(0 0 3px rgba(140, 235, 255, 0.9));
+}
+.pk__banner-text {
+  font-family: 'Orbitron', 'Barlow Semi Condensed', sans-serif;
+  font-size: 15px;
+  font-weight: 900;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  fill: var(--accent-1);
+}
+
+/* título */
+.pk__title {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  margin: 1cqw 0 0;
+  font-family: 'Orbitron', 'Barlow Semi Condensed', sans-serif;
+  font-weight: 900;
+  line-height: 0.98;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  background: linear-gradient(180deg, #ffffff 0%, #d3f6ff 30%, #6bdcff 62%, #2a90e6 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  filter: drop-shadow(0 0.25cqw 0 #03102a) drop-shadow(0 0 1.4cqw rgba(56, 214, 255, 0.75));
+}
+.pk__title-name {
+  font-size: calc(12.5cqw * var(--name-scale, 1));
+  line-height: 12.5cqw; /* fijo: nombres largos no corren el resto */
+}
+.pk__title-pack {
+  font-size: 17cqw;
+}
+
+/* cintillo de rareza */
+.pk__ribbon {
+  margin: 3cqw 0 0;
+  padding: 1.2cqw 3.8cqw 1.1cqw;
+  font-size: 3.9cqw;
+  font-weight: 800;
+  line-height: 1.1;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  color: var(--accent-1);
+  border: 0.35cqw solid transparent;
+  border-radius: 1.4cqw;
+  background:
+    linear-gradient(#0a1633, #0a1633) padding-box,
+    linear-gradient(90deg, var(--accent-2), var(--accent-1) 50%, var(--accent-2)) border-box;
+  box-shadow: 0 0 2.2cqw color-mix(in srgb, var(--accent-1) 30%, transparent);
+}
+.pk__ribbon > span {
+  color: var(--accent-2);
+  padding: 0 0.6cqw;
+}
+
+.pk__series {
+  margin: auto 0 0;
+  padding: 3cqw 0 11.5cqw;
+  font-size: 3.2cqw;
+  font-weight: 700;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+/* ---------- capas de brillo ----------
+ * Mismo criterio que la carta: cada capa compuesta contra negro y sacada con
+ * `screen`, así sólo suma luz donde corresponde. Además el sobre tiene un
+ * barrido periódico, como plástico sellado reflejando luz. */
+@property --pk-drift {
+  syntax: '<number>';
+  inherits: false;
+  initial-value: 0;
+}
+
+.pk__holo,
+.pk__sheen,
+.pk__glare {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  mix-blend-mode: screen;
+  transition: opacity 0.55s ease-out;
+}
+.pk[data-active='true'] .pk__holo,
+.pk[data-active='true'] .pk__glare {
+  transition-duration: 0.22s;
+}
+
+.pk__holo {
+  z-index: 7;
+  background-color: #000;
+  background-image:
+    radial-gradient(farthest-corner circle at var(--mx) var(--my), #ffffff 0%, #c4c4c4 28%, #4a4a4a 66%, #101010 100%),
+    repeating-linear-gradient(
+      101deg,
+      rgba(255, 255, 255, 0) 0 1.3%,
+      rgba(255, 255, 255, 0.22) 1.8%,
+      rgba(255, 255, 255, 0) 2.3% 4.4%
+    ),
+    linear-gradient(101deg, #000 6%, #38d6ff 22%, #a26bff 36%, #ff6fd8 48%, #ffc860 60%, #7dffae 72%, #38d6ff 84%, #000 94%);
+  background-blend-mode: multiply, screen, normal;
+  background-size: 100% 100%, 200% 200%, 240% 100%;
+  background-position:
+    0 0,
+    calc(var(--mx) * 0.6 + var(--pk-drift, 0) * 20%) calc(var(--my) * 0.6),
+    calc(100% - var(--mx) * 1.35 - var(--pk-drift, 0) * 24%) calc(var(--my) * 0.5);
+  filter: saturate(calc(1 + var(--hyp) * 0.4)) blur(0.1cqw);
+  opacity: 0.14;
+  animation: pk-drift 17s ease-in-out infinite alternate;
+}
+
+.pk__sheen {
+  z-index: 8;
+  background: linear-gradient(
+    115deg,
+    transparent 46%,
+    rgba(170, 235, 255, 0.16) 48.5%,
+    rgba(255, 255, 255, 0.42) 50%,
+    rgba(170, 235, 255, 0.16) 51.5%,
+    transparent 54%
+  );
+  background-size: 300% 100%;
+  background-repeat: no-repeat;
+  animation: pk-sheen 7s cubic-bezier(0.45, 0, 0.3, 1) infinite;
+}
+
+.pk__glare {
+  z-index: 9;
+  background-image: radial-gradient(
+    farthest-corner circle at var(--mx) var(--my),
+    color-mix(in srgb, var(--hover-core) 55%, rgba(255, 255, 255, 0.4)) 0%,
+    color-mix(in srgb, var(--hover-core) 25%, transparent) 20%,
+    transparent 48%
+  );
+  opacity: 0;
+}
+
+.pk[data-active='true'] .pk__holo {
+  opacity: 0.42;
+}
+.pk[data-active='true'] .pk__glare {
+  opacity: 1;
+}
+.pk[data-active='true'] .pk__aura {
+  animation-duration: 2.2s;
+}
+
+/* ---------- candado ---------- */
+.pk__lock {
+  position: absolute;
+  z-index: 10;
+  left: calc(50% - 8.5cqw);
+  bottom: -6.5cqw;
+  width: 17cqw;
+  filter: drop-shadow(0 0 1.4cqw rgba(56, 214, 255, 0.75));
+}
+.pk__lock-ring,
+.pk__lock-accent,
+.pk__lock-core {
+  clip-path: polygon(50% 0, 100% 25%, 100% 75%, 50% 100%, 0 75%, 0 25%);
+}
+.pk__lock-ring {
+  aspect-ratio: 0.9;
+  padding: 0.9cqw;
+  background: linear-gradient(160deg, #d6f7ff, #2f86d8 40%, #a9ecff 70%, #1f5aa8);
+}
+.pk__lock-accent {
+  height: 100%;
+  padding: 0.8cqw;
+  background: linear-gradient(160deg, var(--accent-1), var(--accent-2) 45%, var(--accent-1) 70%, var(--accent-2));
+}
+.pk__lock-core {
+  height: 100%;
+  display: grid;
+  place-items: center;
+  background: radial-gradient(90% 80% at 50% 25%, #1f3f78, #0c1a3a 60%, #060e24);
+}
+.pk__lock-icon {
+  width: 7.4cqw;
+  color: var(--accent-1);
+  filter: drop-shadow(0 0 0.8cqw color-mix(in srgb, var(--accent-1) 70%, transparent));
+}
+
+/* ---------- piezas del frente ----------
+ * En reposo hay una sola pieza sin recorte. Al abrir, Pack.tsx monta una
+ * segunda copia y cada una se recorta a un lado del corte en zigzag. */
+.pk__piece {
+  position: absolute;
+  inset: 0;
+}
+.pk__piece--top {
+  clip-path: var(--clip-top);
+}
+.pk-root:not([data-phase='sealed']) .pk__piece--main {
+  clip-path: var(--clip-bottom);
+}
+
+/* pista de "abrir por acá": la línea de corte se enciende al pasar el puntero */
+.pk[role='button'][data-active='true'] .pk__seal::after {
+  opacity: 0.95;
+}
+
+/* ---------- apertura ----------
+ * La coreografía vive en opening.ts (timeline de GSAP). Acá sólo quedan los
+ * estados iniciales: lo que aparece durante la apertura arranca invisible y
+ * GSAP lo anima desde ahí. Cuando cambia `data-phase`, las dos copias del
+ * frente tienen que verse idénticas, por eso se congelan los brillos y el aura
+ * deja de respirar (la maneja la timeline). */
+.pk__fx {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.pk-root[data-phase='opened'] {
+  pointer-events: none;
+}
+
+.pk-root:not([data-phase='sealed']) .pk__aura,
+.pk-root:not([data-phase='sealed']) .pk__holo,
+.pk-root:not([data-phase='sealed']) .pk__sheen {
+  animation: none;
+}
+.pk-root:not([data-phase='sealed']) .pk__sheen {
+  opacity: 0;
+}
+
+/* el corte se dibuja de izquierda a derecha */
+.pk__cut {
+  position: absolute;
+  top: calc(var(--tear-y) - 0.5cqw);
+  left: 3cqw;
+  right: 3cqw;
+  height: 1cqw;
+  border-radius: 1cqw;
+  background: linear-gradient(90deg, var(--neon), #ffffff 50%, var(--neon));
+  box-shadow: 0 0 1.4cqw #ffffff, 0 0 4cqw var(--neon);
+  clip-path: inset(0 100% 0 0);
+}
+
+/* rasgado */
+.pk__tear-glow {
+  position: absolute;
+  z-index: 11;
+  left: 0;
+  right: 0;
+  /* relativo al cuerpo, que arranca 3cqw más abajo que el sobre */
+  top: calc(var(--tear-y) - 3cqw - 1.8cqw);
+  height: 3.6cqw;
+  background: linear-gradient(
+    to bottom,
+    transparent,
+    rgba(190, 245, 255, 0.85) 40%,
+    #ffffff 50%,
+    rgba(190, 245, 255, 0.85) 60%,
+    transparent
+  );
+  opacity: 0;
+  pointer-events: none;
+}
+
+.pk__spark {
+  position: absolute;
+  top: var(--tear-y);
+  left: var(--x);
+  width: var(--w);
+  height: 0.5cqw;
+  border-radius: 1cqw;
+  background: linear-gradient(90deg, transparent, var(--neon-soft) 40%, #ffffff);
+  box-shadow: 0 0 1cqw var(--neon);
+  opacity: 0;
+}
+
+/* luz que sale por la boca del sobre */
+.pk__beam {
+  position: absolute;
+  left: 6cqw;
+  right: 6cqw;
+  bottom: calc(100% - var(--tear-y));
+  height: 150cqw;
+  background: linear-gradient(
+    to top,
+    #ffffff 0%,
+    rgba(170, 240, 255, 0.85) 10%,
+    rgba(56, 214, 255, 0.3) 45%,
+    transparent 85%
+  );
+  -webkit-mask-image: linear-gradient(90deg, transparent, #000 25%, #000 75%, transparent);
+  mask-image: linear-gradient(90deg, transparent, #000 25%, #000 75%, transparent);
+  filter: blur(1.2cqw);
+  opacity: 0;
+}
+
+/* centrado con left/top y no con translate: GSAP maneja el transform (rotación) */
+.pk__rays {
+  position: absolute;
+  left: calc(50% - 115cqw);
+  top: calc(var(--tear-y) - 115cqw);
+  width: 230cqw;
+  aspect-ratio: 1;
+  background: repeating-conic-gradient(
+    from 0deg,
+    color-mix(in srgb, var(--accent-1) 45%, rgba(150, 230, 255, 0.55)) 0deg 3deg,
+    transparent 3deg 15deg
+  );
+  -webkit-mask-image: radial-gradient(circle, #000 0%, rgba(0, 0, 0, 0.55) 18%, transparent 52%);
+  mask-image: radial-gradient(circle, #000 0%, rgba(0, 0, 0, 0.55) 18%, transparent 52%);
+  opacity: 0;
+}
+
+/* cartas de energía: siluetas de luz, el contenido real lo muestra el padre */
+.pk__card {
+  position: absolute;
+  top: 23cqw;
+  left: 15cqw;
+  width: 70cqw;
+  aspect-ratio: 5 / 8;
+  border-radius: 3cqw;
+  background: linear-gradient(
+    160deg,
+    #ffffff,
+    color-mix(in srgb, var(--neon-soft) 80%, var(--accent-1)) 35%,
+    color-mix(in srgb, var(--neon) 65%, var(--accent-2)) 100%
+  );
+  box-shadow: 0 0 3cqw rgba(150, 235, 255, 0.9), 0 0 9cqw color-mix(in srgb, var(--accent-1) 50%, transparent);
+}
+.pk__card::before {
+  content: '';
+  position: absolute;
+  inset: 2.6cqw;
+  border: 0.5cqw solid rgba(255, 255, 255, 0.75);
+  border-radius: 2cqw;
+}
+
+/* caja corrida hacia arriba para que el centro caiga en la boca del sobre;
+ * closest-side hace que el gradiente muera antes de los bordes (sin cortes rectos) */
+.pk__flash {
+  position: absolute;
+  inset: -45% -40% -15%;
+  background: radial-gradient(
+    closest-side,
+    #ffffff 0%,
+    rgba(210, 248, 255, 0.97) 35%,
+    rgba(56, 214, 255, 0.5) 65%,
+    transparent 100%
+  );
+  opacity: 0;
+}
+
+/* ---------- animaciones ---------- */
+@keyframes pk-float {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-1.8cqw); }
+}
+@keyframes pk-breathe {
+  0%, 100% { opacity: 0.7; transform: scale(0.97); }
+  50% { opacity: 1; transform: scale(1.03); }
+}
+@keyframes pk-drift {
+  from { --pk-drift: 0; }
+  to { --pk-drift: 1; }
+}
+/* el barrido ocupa el 40% del ciclo; el resto queda quieto para que no canse */
+@keyframes pk-sheen {
+  0% { background-position: 100% 0; }
+  40%, 100% { background-position: 0 0; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pk,
+  .pk__frame,
+  .pk__glow,
+  .pk__holo,
+  .pk__glare {
+    transition: none;
+  }
+  .pk {
+    transform: none;
+  }
+  .pk-float,
+  .pk__aura,
+  .pk__holo,
+  .pk__sheen {
+    animation: none;
+  }
+  .pk__sheen {
+    opacity: 0;
+  }
+}

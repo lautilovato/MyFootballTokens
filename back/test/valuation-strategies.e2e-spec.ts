@@ -12,6 +12,7 @@ import { Team } from '../src/infrastructure/database/entities/team.entity';
 import { User } from '../src/infrastructure/database/entities/user.entity';
 import { ValuationStrategy } from '../src/infrastructure/database/entities/valuation-strategy.entity';
 import { ValuationStrategyVersion } from '../src/infrastructure/database/entities/valuation-strategy-version.entity';
+import { cleanPacksData } from './support/clean-database';
 
 const SEASON = '2025-2026';
 const ADMIN_KEY_HEADER = 'x-api-key';
@@ -73,6 +74,7 @@ describe('Valuation strategies (e2e)', () => {
 
   /** Deja las estrategias como las sembró la migración: solo v1 y performance activa. */
   async function cleanDatabase() {
+    await cleanPacksData(em);
     await em.nativeDelete(PlayerQuote, {});
     await em.nativeDelete(QuoteRun, {});
     await em.nativeDelete(ValuationStrategyVersion, { version: { $gt: 1 } });

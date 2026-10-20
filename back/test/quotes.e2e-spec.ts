@@ -20,6 +20,7 @@ import { User } from '../src/infrastructure/database/entities/user.entity';
 import { ValuationStrategy } from '../src/infrastructure/database/entities/valuation-strategy.entity';
 import { QuotesRepository } from '../src/modules/quotes/quotes.repository';
 import { QUOTES_CRON_JOB_NAME, QuotesService } from '../src/modules/quotes/quotes.service';
+import { cleanPacksData } from './support/clean-database';
 
 const SEASON = '2025-2026';
 const ADMIN_KEY_HEADER = 'x-api-key';
@@ -106,6 +107,7 @@ describe('Quotes (e2e)', () => {
   });
 
   async function cleanDatabase() {
+    await cleanPacksData(em);
     await em.nativeDelete(PlayerQuote, {});
     await em.nativeDelete(QuoteRun, {});
     await em.nativeDelete(PlayerSeasonStats, {});

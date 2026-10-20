@@ -1,19 +1,22 @@
 import { jest } from '@jest/globals';
-import { ConflictException, UnauthorizedException } from '@nestjs/common';
+import { ConflictException, InternalServerErrorException, UnauthorizedException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import * as bcrypt from 'bcrypt';
 import { AuthService } from './auth.service';
 import { AuthRepository, normalizeEmail } from './auth.repository';
 import { INVALID_CREDENTIALS_MESSAGE } from '../../shared/auth/auth.constants';
 import type { User } from '../../infrastructure/database/entities/user.entity';
+import type { CreditsService } from '../credits/credits.service';
 
 describe('AuthService', () => {
   let repo: {
     findByEmail: ReturnType<typeof jest.fn>;
     existsByEmail: ReturnType<typeof jest.fn>;
     create: ReturnType<typeof jest.fn>;
+    inTransaction: ReturnType<typeof jest.fn>;
   };
   let jwt: { sign: ReturnType<typeof jest.fn> };
+  let credits: { grantInitial: ReturnType<typeof jest.fn> };
   let service: AuthService;
 
   const usuario = (over: Partial<User> = {}): User =>
@@ -27,9 +30,20 @@ describe('AuthService', () => {
     }) as User;
 
   beforeEach(() => {
-    repo = { findByEmail: jest.fn(), existsByEmail: jest.fn(), create: jest.fn() };
+    repo = {
+      findByEmail: jest.fn(),
+      existsByEmail: jest.fn(),
+      create: jest.fn(),
+      // Sin base: la "transacción" solo corre el trabajo y propaga lo que lance.
+      inTransaction: jest.fn((work: () => Promise<unknown>) => work()),
+    };
     jwt = { sign: jest.fn().mockReturnValue('token-firmado') };
-    service = new AuthService(repo as unknown as AuthRepository, jwt as unknown as JwtService);
+    credits = { grantInitial: jest.fn().mockResolvedValue(true as never) };
+    service = new AuthService(
+      repo as unknown as AuthRepository,
+      jwt as unknown as JwtService,
+      credits as unknown as CreditsService,
+    );
   });
 
   describe('normalizeEmail', () => {
@@ -80,6 +94,30 @@ describe('AuthService', () => {
       await expect(
         service.register({ email: 'ana@example.com', username: 'ana', password: 'secreta123' }),
       ).rejects.toBeInstanceOf(ConflictException);
+      expect(credits.grantInitial).not.toHaveBeenCalled();
+    });
+
+    it('acredita la entrega inicial dentro de la transacción del registro (08-sobres FR-001)', async () => {
+      repo.existsByEmail.mockResolvedValue(false);
+      repo.create.mockResolvedValue(usuario({ id: 'nuevo' }));
+
+      await service.register({ email: 'ana@example.com', username: 'ana', password: 'secreta123' });
+
+      expect(repo.inTransaction).toHaveBeenCalledTimes(1);
+      expect(credits.grantInitial).toHaveBeenCalledWith('nuevo');
+    });
+
+    it('si la entrega inicial falla, responde 500 sin detalle interno', async () => {
+      repo.existsByEmail.mockResolvedValue(false);
+      repo.create.mockResolvedValue(usuario());
+      credits.grantInitial.mockRejectedValue(new Error('detalle del ORM') as never);
+
+      const error = await service
+        .register({ email: 'ana@example.com', username: 'ana', password: 'secreta123' })
+        .catch((e) => e);
+
+      expect(error).toBeInstanceOf(InternalServerErrorException);
+      expect(JSON.stringify(error.getResponse())).not.toContain('ORM');
     });
   });
 

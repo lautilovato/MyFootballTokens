@@ -93,6 +93,14 @@ export function sameFilters(a: PlayerFilters, b: PlayerFilters): boolean {
 }
 
 /**
+ * ¿Hay algún filtro aplicado? Sin filtros, un listado vacío significa que no hay ninguna carta a
+ * la venta (08-sobres FR-070); con filtros, que ninguna cumple con ellos.
+ */
+export function hasActiveFilters(filters: PlayerFilters): boolean {
+  return !sameFilters(filters, {});
+}
+
+/**
  * Cambiar un filtro devuelve el listado a la primera página (US2 §7): quedarse en la página 7
  * de un conjunto que ahora tiene 2 páginas mostraría un resultado vacío sin explicación.
  */

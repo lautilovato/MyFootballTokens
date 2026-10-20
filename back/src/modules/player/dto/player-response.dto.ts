@@ -2,18 +2,17 @@ import { ApiProperty } from '@nestjs/swagger';
 import { Player, PlayerPosition } from '../../../infrastructure/database/entities/player.entity';
 import { PlayerSeasonStats } from '../../../infrastructure/database/entities/player-season-stats.entity';
 import { nationalityCode } from '../nationality-code';
-import { ovrFromRating } from '../ovr';
+import { ovrFromReputation } from '../ovr';
 import { rarityFromOvr } from '../rarity';
 import type { Rarity } from '../rarity';
 import { priceMovement } from '../price-movement';
 
 /**
- * Oferta de tokens. Constantes, no persistidas: la constitución §5 fija "100 tokens iniciales
- * por jugador, con un valor de 1 crédito en el momento cero, concentrados inicialmente en un
- * único superusuario" — al estar todos en el superusuario, lo emitido es lo total.
+ * Oferta de tokens. Constantes, no persistidas: cada jugador tiene 100 tokens (constitución §5).
  *
- * No existe entidad Token: en esta feature el supply es dato de presentación y la compra está
- * fuera de alcance (FR-032, research #6).
+ * Sigue siendo dato de presentación: la home muestra la emisión como maqueta hasta que una
+ * feature posterior la conecte a los tokens reales de 08-sobres (Assumptions, «Fuera de
+ * alcance»).
  */
 export const TOKEN_SUPPLY_TOTAL = 100;
 export const TOKEN_SUPPLY_MINTED = 100;
@@ -83,11 +82,14 @@ export class PlayerCardDto {
     maximum: 99,
     example: 86,
     description:
-      'Parte entera y primer decimal del rating de temporada, como entero de dos cifras (FR-027). Nulo si el jugador no tiene estadísticas.',
+      'Reputación mundial cargada, acotada a 99 (08-sobres FR-067). Nulo si el jugador no tiene reputación cargada (FR-068).',
   })
   ovr!: number | null;
 
-  @ApiProperty({ enum: ['legendary', 'epic', 'rare', 'common'] })
+  @ApiProperty({
+    enum: ['legendary', 'epic', 'rare', 'common'],
+    description: 'Derivada del OVR: 88 o más legendary, 80–87 epic, 70–79 rare, resto common (08-sobres FR-016).',
+  })
   rarity!: Rarity;
 
   @ApiProperty({ type: ClubDto })
@@ -138,7 +140,7 @@ export class PlayerCardDto {
     dto.id = player.id;
     dto.name = player.fullName;
     dto.position = player.position;
-    dto.ovr = ovrFromRating(stats?.rating ?? null);
+    dto.ovr = ovrFromReputation(player.worldReputation);
     dto.rarity = rarityFromOvr(dto.ovr);
     dto.club = { name: player.team.name, crestUrl: player.team.crestUrl ?? null };
     dto.nationality = {
@@ -182,7 +184,7 @@ export class PlayerDetailDto extends PlayerCardDto {
   @ApiProperty({ type: Number, nullable: true })
   tackles!: number | null;
 
-  @ApiProperty({ type: Number, nullable: true, example: 8.63, description: 'Origen del OVR' })
+  @ApiProperty({ type: Number, nullable: true, example: 8.63, description: 'Rating de la temporada vigente' })
   rating!: number | null;
 
   static override fromEntity(row: PlayerWithStats): PlayerDetailDto {
