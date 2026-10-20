@@ -36,6 +36,8 @@ export interface ApiPlayerCard {
   supply: { minted: number; total: number };
   /** Precios de las últimas cotizaciones (hasta 30), del más viejo al más nuevo. Vacío si nunca cotizó. */
   priceHistory: number[];
+  /** Cartas del jugador a la venta: publicaciones activas de usuarios y de la plataforma (09-mercado FR-026). */
+  forSaleCount: number;
 }
 
 export interface ApiPlayerDetail extends ApiPlayerCard {

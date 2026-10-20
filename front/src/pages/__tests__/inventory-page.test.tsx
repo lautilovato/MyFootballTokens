@@ -4,15 +4,35 @@ import { MemoryRouter } from 'react-router-dom';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import InventoryPage, { INVENTORY_PAGE_SIZE } from '../InventoryPage';
 import { getInventory, type InventoryItem, type InventoryPage as Page } from '../../services/inventory.service';
+import { publishListing, withdrawListing } from '../../services/market.service';
 import type { ApiPlayerCard } from '../../services/players.service';
 
 vi.mock('../../services/inventory.service', () => ({ getInventory: vi.fn() }));
+vi.mock('../../services/market.service', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('../../services/market.service')>()),
+  publishListing: vi.fn(),
+  withdrawListing: vi.fn(),
+}));
+/** jsdom no implementa `<dialog>.showModal()`: el doble muestra el contenido si está abierto. */
+vi.mock('../../components/confirm-modal/ConfirmModal', () => ({
+  ConfirmModal: (props: { open: boolean; title: string; description?: string; onConfirm: () => void; onCancel: () => void }) =>
+    props.open ? (
+      <div role="dialog">
+        <p>{props.title}</p>
+        <p>{props.description}</p>
+        <button onClick={props.onConfirm}>confirmar</button>
+        <button onClick={props.onCancel}>cancelar</button>
+      </div>
+    ) : null,
+}));
 vi.mock('../../services/useAuth', () => ({ useAuth: () => ({ user: { username: 'ana' }, logout: vi.fn() }) }));
 vi.mock('../../app/useCredits', () => ({ useCredits: () => ({ balance: 1800, refresh: vi.fn(), setBalance: vi.fn() }) }));
 
 const fetchInventory = vi.mocked(getInventory);
+const publish = vi.mocked(publishListing);
+const withdraw = vi.mocked(withdrawListing);
 
-function item(id: string, name: string, reputation: number, serials: number[]): InventoryItem {
+function item(id: string, name: string, reputation: number, serials: number[], listed: number[] = []): InventoryItem {
   const player: ApiPlayerCard = {
     id,
     name,
@@ -26,10 +46,10 @@ function item(id: string, name: string, reputation: number, serials: number[]): 
     assists: 0,
     marketValue: 3000,
     changePct: 0,
-    supply: { minted: 100, total: 100 },
+    supply: { minted: 100, total: 100 }, forSaleCount: 0,
     priceHistory: [],
   };
-  return { player, reputation, count: serials.length, tokens: serials.map((serial) => ({ id: `${id}-${serial}`, serial })) };
+  return { player, reputation, count: serials.length, tokens: serials.map((serial) => ({ id: `${id}-${serial}`, serial, listingId: listed.includes(serial) ? `l-${id}-${serial}` : null })) };
 }
 
 function page(data: InventoryItem[], meta: Partial<Page['meta']> = {}): Page {
@@ -45,6 +65,8 @@ beforeEach(() => {
     vi.fn(() => ({ matches: false, addEventListener: vi.fn(), removeEventListener: vi.fn() })),
   );
   fetchInventory.mockReset();
+  publish.mockReset();
+  withdraw.mockReset();
   container = document.createElement('div');
   document.body.appendChild(container);
   root = createRoot(container);
@@ -124,12 +146,60 @@ describe('InventoryPage', () => {
     expect(container.textContent).toContain('Leo Legendario');
   });
 
-  it('no ofrece acciones sobre las cartas (US6-5, FR-066)', async () => {
-    fetchInventory.mockResolvedValue(page([item('p1', 'Leo Legendario', 91, [1, 2])]));
+  // 09-mercado reemplaza FR-066: cada carta se puede poner a la venta o retirar (FR-036, FR-037).
+
+  it('publicar pide confirmación con el precio actual y avisa que sigue a la cotización', async () => {
+    fetchInventory.mockResolvedValue(page([item('p1', 'Leo Legendario', 91, [3])]));
     await render();
-    const labels = [...container.querySelectorAll('button')].map((b) => b.textContent?.toLowerCase() ?? '');
-    for (const forbidden of ['vender', 'listar', 'transferir', 'comprar']) {
-      expect(labels.some((l) => l.includes(forbidden))).toBe(false);
-    }
+
+    await act(async () => button('Poner a la venta').click());
+    const dialog = container.querySelector('[role="dialog"]')!;
+    expect(dialog.textContent).toContain('3.000 créditos');
+    expect(dialog.textContent).toContain('sigue a la cotización');
+    expect(publish).not.toHaveBeenCalled();
+  });
+
+  it('cancelar no publica nada', async () => {
+    fetchInventory.mockResolvedValue(page([item('p1', 'Leo Legendario', 91, [3])]));
+    await render();
+    await act(async () => button('Poner a la venta').click());
+    await act(async () => button('cancelar').click());
+    expect(publish).not.toHaveBeenCalled();
+    expect(container.querySelector('[role="dialog"]')).toBeNull();
+  });
+
+  it('confirmar publica la carta y recarga el inventario con la marca «A la venta»', async () => {
+    fetchInventory.mockResolvedValueOnce(page([item('p1', 'Leo Legendario', 91, [3])]));
+    publish.mockResolvedValue({} as never);
+    await render();
+
+    fetchInventory.mockResolvedValue(page([item('p1', 'Leo Legendario', 91, [3], [3])]));
+    await act(async () => button('Poner a la venta').click());
+    await act(async () => button('confirmar').click());
+
+    expect(publish).toHaveBeenCalledWith('p1-3');
+    expect(container.textContent).toContain('A la venta');
+    expect(button('Retirar')).toBeDefined();
+  });
+
+  it('retirar también pide confirmación y usa la publicación del token', async () => {
+    fetchInventory.mockResolvedValue(page([item('p1', 'Leo Legendario', 91, [3], [3])]));
+    withdraw.mockResolvedValue({} as never);
+    await render();
+
+    await act(async () => button('Retirar').click());
+    expect(container.querySelector('[role="dialog"]')?.textContent).toContain('deja de estar a la venta');
+    await act(async () => button('confirmar').click());
+    expect(withdraw).toHaveBeenCalledWith('l-p1-3');
+  });
+
+  it('un rechazo muestra el mensaje de su código', async () => {
+    fetchInventory.mockResolvedValue(page([item('p1', 'Leo Legendario', 91, [3])]));
+    publish.mockRejectedValue({ response: { data: { code: 'TOKEN_ALREADY_LISTED', message: 'x' } } });
+    await render();
+
+    await act(async () => button('Poner a la venta').click());
+    await act(async () => button('confirmar').click());
+    expect(container.querySelector('[role="alert"]')?.textContent).toBe('Esa carta ya está a la venta.');
   });
 });

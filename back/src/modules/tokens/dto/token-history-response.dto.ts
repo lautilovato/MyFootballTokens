@@ -19,7 +19,7 @@ export interface TokenEventRow {
 const HIDDEN_EVENTS = new Set(['asignacion_a_sobre']);
 
 class OperationDto {
-  @ApiProperty({ enum: ['pack_batch', 'pack_opening'] })
+  @ApiProperty({ enum: ['pack_batch', 'pack_opening', 'listing', 'token_purchase'] })
   type!: string;
 
   @ApiProperty({ format: 'uuid' })
@@ -27,7 +27,9 @@ class OperationDto {
 }
 
 export class TokenHistoryEventDto {
-  @ApiProperty({ enum: ['emision', 'entrega_en_sobre', 'devolucion_a_plataforma', 'puesta_en_venta'] })
+  @ApiProperty({
+    enum: ['emision', 'entrega_en_sobre', 'devolucion_a_plataforma', 'puesta_en_venta', 'retiro_de_venta', 'venta'],
+  })
   type!: string;
 
   @ApiProperty({ type: String, format: 'date-time' })

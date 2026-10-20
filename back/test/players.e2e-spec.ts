@@ -145,7 +145,8 @@ describe('Players / Leagues (e2e)', () => {
     em.persist([...leagues.values(), ...teams.values()]);
     await em.flush();
 
-    // Cartas a la venta (08-sobres FR-070): sin ellas el Market no lista al jugador.
+    // Cartas a la venta (08-sobres FR-070): sin ellas el Market no lista al jugador. Son tokens
+    // de la plataforma, cada uno con su publicación activa (09-mercado FR-008).
     for (const fixture of FIXTURES) {
       if (NOT_FOR_SALE.includes(fixture.name)) continue;
       await em.execute(
@@ -154,7 +155,21 @@ describe('Players / Leagues (e2e)', () => {
         [ids.get(fixture.name)],
       );
     }
+    await relistPlatformTokens();
     return ids;
+  }
+
+  /**
+   * Una publicación activa por cada token de la plataforma. `listing` no admite DELETE ni reabrir
+   * (09-mercado FR-030): para volver al estado inicial se vacía con TRUNCATE y se recrea.
+   */
+  async function relistPlatformTokens(): Promise<void> {
+    await em.execute('truncate table "token_purchase", "listing"');
+    await em.execute(
+      `insert into "listing" ("id", "token_id", "player_id", "seller_id", "status", "created_at", "correlation_id")
+       select gen_random_uuid(), "id", "player_id", null, 'activa', now(), 'e2e-players'
+         from "token" where "status" = 'en_venta_plataforma'`,
+    );
   }
 
   /**
@@ -594,7 +609,7 @@ describe('Players / Leagues (e2e)', () => {
 
   // ---------------------------------------------------------------- E14
 
-  describe('E14 — el Market muestra solo cartas a la venta (08-sobres FR-070)', () => {
+  describe('E14 — el Market muestra solo jugadores con publicaciones activas (08 FR-070, 09 FR-026)', () => {
     it('no lista a un jugador sin ninguna carta a la venta', async () => {
       const { body } = await get('/players?limit=100').expect(200);
       expect(body.data.map((p: any) => p.name)).not.toContain('Quique NoEnVenta');
@@ -606,33 +621,71 @@ describe('Players / Leagues (e2e)', () => {
       expect(body).toMatchObject({ name: 'Quique NoEnVenta', ovr: 86 });
     });
 
-    it('las cartas en sobres o en poder de usuarios no cuentan como a la venta', async () => {
+    it('un jugador deja de aparecer cuando se cierran todas sus publicaciones', async () => {
       const id = idsByName.get('Dario Comun')!;
-      await em.execute(`update "token" set "status" = 'en_sobre' where "player_id" = ?`, [id]);
+      await em.execute(
+        `update "listing" set "status" = 'retirada', "closed_at" = now(), "closed_correlation_id" = 'e2e' where "player_id" = ?`,
+        [id],
+      );
       await app.get(PlayerService).invalidateListCache();
       try {
         const { body } = await get('/players?limit=100').expect(200);
         expect(body.data.map((p: any) => p.name)).not.toContain('Dario Comun');
       } finally {
-        await em.execute(`update "token" set "status" = 'en_venta_plataforma' where "player_id" = ?`, [id]);
+        await relistPlatformTokens();
         await app.get(PlayerService).invalidateListCache();
       }
     });
 
-    it('sin ninguna carta a la venta, el listado está vacío', async () => {
-      await em.execute(`update "token" set "status" = 'reservado'`);
+    it('un token a la venta sin publicación activa no cuenta: el criterio es la publicación', async () => {
+      await em.execute('truncate table "token_purchase", "listing"');
       await app.get(PlayerService).invalidateListCache();
       try {
         const { body } = await get('/players?limit=100').expect(200);
         expect(body).toMatchObject({ data: [], meta: { total: 0 } });
       } finally {
-        await em.execute(`update "token" set "status" = 'en_venta_plataforma'`);
-        await em.execute(
-          `update "token" t set "status" = 'reservado' from "player" p where p."id" = t."player_id" and p."full_name" in (${NOT_FOR_SALE.map(() => '?').join(', ')})`,
-          [...NOT_FOR_SALE],
-        );
+        await relistPlatformTokens();
         await app.get(PlayerService).invalidateListCache();
       }
+    });
+  });
+
+  // ---------------------------------------------------------------- E15
+
+  describe('E15 — cantidad de cartas a la venta (09-mercado FR-026, SC-011)', () => {
+    it('cada jugador del Market informa sus publicaciones activas, también en el detalle', async () => {
+      const { body } = await get('/players?limit=100').expect(200);
+      expect(body.data.length).toBeGreaterThan(0);
+      for (const player of body.data) expect(player.forSaleCount).toBe(100);
+
+      const detail = await get(`/players/${idsByName.get('Dario Comun')}`).expect(200);
+      expect(detail.body.forSaleCount).toBe(100);
+      const notForSale = await get(`/players/${idsByName.get('Quique NoEnVenta')}`).expect(200);
+      expect(notForSale.body.forSaleCount).toBe(0);
+    });
+
+    it('baja cuando se cierran publicaciones, sin esperar la caché', async () => {
+      const id = idsByName.get('Dario Comun')!;
+      await get('/players?limit=100').expect(200); // queda en caché
+      await em.execute(
+        `update "listing" set "status" = 'vendida', "closed_at" = now(), "closed_correlation_id" = 'e2e'
+          where "id" in (select "id" from "listing" where "player_id" = ? order by "id" limit 3)`,
+        [id],
+      );
+      await app.get(PlayerService).invalidateListCache();
+      try {
+        const { body } = await get('/players?limit=100').expect(200);
+        expect(body.data.find((p: any) => p.id === id).forSaleCount).toBe(97);
+      } finally {
+        await relistPlatformTokens();
+        await app.get(PlayerService).invalidateListCache();
+      }
+    });
+
+    it('los filtros siguen operando sobre los jugadores con cartas a la venta (US3-7)', async () => {
+      const { body } = await get('/players?position=GK&limit=100').expect(200);
+      expect(body.data.map((p: any) => p.name)).toEqual(['Dario Comun']);
+      expect(body.data[0].forSaleCount).toBe(100);
     });
   });
 

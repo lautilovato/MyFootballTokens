@@ -57,6 +57,8 @@ export interface PlayerWithStats {
   player: Player;
   stats: PlayerSeasonStats | null;
   priceSeries?: number[];
+  /** Publicaciones activas del jugador (09-mercado FR-026). */
+  forSaleCount?: number;
 }
 
 function toNumberOrNull(value: string | number | null | undefined): number | null {
@@ -132,7 +134,14 @@ export class PlayerCardDto {
   })
   priceHistory!: number[];
 
-  static fromEntity({ player, stats, priceSeries = [] }: PlayerWithStats): PlayerCardDto {
+  @ApiProperty({
+    type: Number,
+    minimum: 0,
+    description: 'Cartas del jugador a la venta: publicaciones activas de usuarios y de la plataforma (09-mercado FR-026)',
+  })
+  forSaleCount!: number;
+
+  static fromEntity({ player, stats, priceSeries = [], forSaleCount = 0 }: PlayerWithStats): PlayerCardDto {
     const dto = new PlayerCardDto();
     const marketValue = Number(player.baseValue);
     const movement = priceMovement(priceSeries);
@@ -154,6 +163,7 @@ export class PlayerCardDto {
     dto.changePct = movement.changePct;
     dto.supply = { minted: TOKEN_SUPPLY_MINTED, total: TOKEN_SUPPLY_TOTAL };
     dto.priceHistory = movement.history;
+    dto.forSaleCount = forSaleCount;
 
     return dto;
   }

@@ -101,7 +101,7 @@ function player(id: string, name: string): ApiPlayerCard {
     assists: 1,
     marketValue: 6000,
     changePct: 0,
-    supply: { minted: 100, total: 100 },
+    supply: { minted: 100, total: 100 }, forSaleCount: 0,
     priceHistory: [],
   };
 }

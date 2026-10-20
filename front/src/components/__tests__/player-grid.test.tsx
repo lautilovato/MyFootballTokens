@@ -18,7 +18,7 @@ function apiPlayer(id: string, name: string): ApiPlayerCard {
     assists: 2,
     marketValue: 1200,
     changePct: 1.5,
-    supply: { minted: 100, total: 100 },
+    supply: { minted: 100, total: 100 }, forSaleCount: 0,
     priceHistory: [1100, 1200],
   };
 }
@@ -63,5 +63,20 @@ describe('PlayerGrid', () => {
 
     act(() => items[0].querySelector<HTMLElement>('.pc')!.click());
     expect(onSelect).toHaveBeenCalledWith('a');
+  });
+
+  it('muestra debajo de cada carta cuántas hay a la venta (09-mercado FR-026)', () => {
+    act(() => {
+      root.render(
+        <PlayerGrid
+          players={[{ ...apiPlayer('a', 'Bukayo Saka'), forSaleCount: 3 }, { ...apiPlayer('b', 'Declan Rice'), forSaleCount: 1 }]}
+          selectedId={null}
+          onSelect={vi.fn()}
+        />,
+      );
+    });
+    const items = container.querySelectorAll('li');
+    expect(items[0].textContent).toContain('3 a la venta');
+    expect(items[1].textContent).toContain('1 a la venta');
   });
 });

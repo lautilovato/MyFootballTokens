@@ -15,6 +15,7 @@ import {
   setCredits,
   syncStock,
 } from './support/packs-fixtures';
+import { publish, purchase, withdraw } from './support/market-fixtures';
 
 jest.setTimeout(120_000);
 
@@ -145,7 +146,21 @@ describe('Tokens (e2e)', () => {
       expect(full.meta.total).toBe(full.data.length);
     });
 
-    it('no existen operaciones para sacar un token del inventario (US3-7, FR-036)', async () => {
+    it('marca con listingId el token publicado y lo limpia al retirarlo (09-mercado FR-025)', async () => {
+      const { token } = await registerUser(app, 'publica@tokens.test');
+      const [tokenId] = await openMany(token, 'common', 1);
+      const listingOf = async () =>
+        (await allInventory(token, 100)).flatMap((item) => item.tokens).find((t: any) => t.id === tokenId).listingId;
+
+      expect(await listingOf()).toBeNull();
+      const { body: listing } = await publish(app, token, { tokenId }).expect(201);
+      expect(await listingOf()).toBe(listing.id);
+      await withdraw(app, token, listing.id).expect(200);
+      expect(await listingOf()).toBeNull();
+    });
+
+    // 09-mercado reemplaza FR-036: publicar y comprar viven en /market, no en estas rutas.
+    it('no existen rutas de venta ni transferencia sobre el inventario (fuera de /market)', async () => {
       const { token } = await registerUser(app, 'sin-acciones@tokens.test');
       const [tokenId] = await openMany(token, 'common', 1);
       for (const path of [`/tokens/${tokenId}/sell`, `/tokens/${tokenId}/transfer`, `/inventory/${tokenId}/list`]) {
@@ -231,6 +246,36 @@ describe('Tokens (e2e)', () => {
       const { token } = await registerUser(app, 'uuid@tokens.test');
       const res = await get(token, '/tokens/no-es-uuid/history').expect(422);
       expect(res.body.code).toBe('VALIDATION_ERROR');
+    });
+
+    it('tras una venta, comprador y vendedor ven el historial completo con sus eventos (09-mercado FR-023, FR-024)', async () => {
+      const ana = await registerUser(app, 'vende@tokens.test');
+      const beto = await registerUser(app, 'compra@tokens.test');
+      const [tokenId] = await openMany(ana.token, 'common', 1);
+      const { body: first } = await publish(app, ana.token, { tokenId }).expect(201);
+      await withdraw(app, ana.token, first.id).expect(200);
+      const { body: listing } = await publish(app, ana.token, { tokenId }).expect(201);
+      await setCredits(em, beto.userId, 100_000);
+      const { body: bought } = await purchase(app, beto.token, { listingId: listing.id, acceptedPrice: listing.price }).expect(201);
+
+      const types = ['emision', 'entrega_en_sobre', 'puesta_en_venta', 'retiro_de_venta', 'puesta_en_venta', 'venta'];
+      const deBeto = (await get(beto.token, `/tokens/${tokenId}/history`).expect(200)).body.events;
+      expect(deBeto.map((e: any) => e.type)).toEqual(types);
+      expect(deBeto[5]).toMatchObject({
+        from: 'otro_usuario',
+        to: 'yo',
+        quotePrice: bought.price,
+        operation: { type: 'token_purchase', id: bought.id },
+      });
+      expect(deBeto[2]).toMatchObject({ from: 'otro_usuario', to: 'otro_usuario', operation: { type: 'listing', id: first.id } });
+      expect(JSON.stringify(deBeto)).not.toContain(ana.userId);
+
+      const deAna = (await get(ana.token, `/tokens/${tokenId}/history`).expect(200)).body.events;
+      expect(deAna.map((e: any) => e.type)).toEqual(types);
+      // SC-010: el último evento coincide con el dueño actual.
+      expect(deAna[5]).toMatchObject({ from: 'yo', to: 'otro_usuario' });
+      const [token] = await em.execute<{ owner_id: string }[]>('select "owner_id" from "token" where "id" = ?', [tokenId]);
+      expect(token.owner_id).toBe(beto.userId);
     });
 
     it('los eventos no se pueden modificar ni borrar (US4-6, FR-040)', async () => {

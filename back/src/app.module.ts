@@ -14,6 +14,7 @@ import {
 import { LoggingModule } from './shared/logging/logging.module';
 import { AuthModule } from './modules/auth/auth.module';
 import { CreditsModule } from './modules/credits/credits.module';
+import { MarketModule } from './modules/market/market.module';
 import { PacksModule } from './modules/packs/packs.module';
 import { TokensModule } from './modules/tokens/tokens.module';
 import { IngestionModule } from './modules/ingestion/ingestion.module';
@@ -75,6 +76,8 @@ const observeImports =
     CreditsModule,
     TokensModule,
     PacksModule,
+    // 09-mercado: publicar, retirar y comprar cartas.
+    MarketModule,
   ],
   controllers: [AppController],
   providers: [AppService],

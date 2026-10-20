@@ -2,7 +2,6 @@ import { Injectable } from '@nestjs/common';
 import { EntityManager } from '@mikro-orm/postgresql';
 import { Player } from '../../infrastructure/database/entities/player.entity';
 import { PlayerSeasonStats } from '../../infrastructure/database/entities/player-season-stats.entity';
-import { FOR_SALE_TOKEN_STATUSES } from '../../infrastructure/database/entities/token.entity';
 import { GetPlayersFilterDto } from './dto/get-players-filter.dto';
 import { PlayerWithStats } from './dto/player-response.dto';
 import { OVR_MAX } from './ovr';
@@ -60,11 +59,12 @@ export class PlayerRepository {
         'exists (select 1 from "player_season_stats" "s0" where "s0"."player_id" = "p"."id" and "s0"."season" = ?)',
         [season],
       )
-      // El Market muestra solo jugadores con alguna carta a la venta (08-sobres FR-070). Mientras
-      // no exista ninguna —el mercado arranca vacío—, el listado está vacío.
+      // El Market muestra solo jugadores con alguna carta a la venta (08-sobres FR-070): una
+      // publicación activa, de un usuario o de la plataforma (09-mercado FR-026, research #8).
+      // Mientras no exista ninguna —el mercado arranca vacío—, el listado está vacío.
       .andWhere(
-        `exists (select 1 from "token" "tk" where "tk"."player_id" = "p"."id" and "tk"."status" in (${FOR_SALE_TOKEN_STATUSES.map(() => '?').join(', ')}))`,
-        [...FOR_SALE_TOKEN_STATUSES],
+        `exists (select 1 from "listing" "ls" where "ls"."player_id" = "p"."id" and "ls"."status" = 'activa')`,
+        [],
       );
 
     if (filter.position?.length) {
@@ -183,6 +183,7 @@ export class PlayerRepository {
 
     const playerIds = players.map((p) => p.id);
     const priceSeries = await this.findPriceSeries(playerIds);
+    const forSale = await this.countActiveListings(playerIds);
 
     // Sin temporada cargada no hay estadísticas, pero un jugador cotizado sigue teniendo precios.
     const stats =
@@ -198,7 +199,24 @@ export class PlayerRepository {
       player,
       stats: byPlayerId.get(player.id) ?? null,
       priceSeries: priceSeries.get(player.id) ?? [],
+      forSaleCount: forSale.get(player.id) ?? 0,
     }));
+  }
+
+  /**
+   * Cartas a la venta de cada jugador de la página (09-mercado FR-026): sus publicaciones activas,
+   * de usuarios y de la plataforma. Una consulta para toda la página, por el mismo motivo que las
+   * estadísticas; la sostiene `listing_player_active_index`.
+   */
+  private async countActiveListings(playerIds: string[]): Promise<Map<string, number>> {
+    const rows = await this.em.execute<{ player_id: string; count: number }[]>(
+      `select "player_id", count(*)::int as "count"
+         from "listing"
+        where "status" = 'activa' and "player_id" in (${playerIds.map(() => '?').join(', ')})
+        group by "player_id"`,
+      playerIds,
+    );
+    return new Map(rows.map((row) => [row.player_id, Number(row.count)]));
   }
 
   /**

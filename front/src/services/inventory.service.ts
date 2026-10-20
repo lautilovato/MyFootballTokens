@@ -9,6 +9,8 @@ import type { ApiPlayerCard } from './players.service';
 export interface InventoryToken {
   id: string;
   serial: number;
+  /** Publicación activa del token; nulo si no está a la venta (09-mercado FR-025). */
+  listingId: string | null;
 }
 
 export interface InventoryItem {

@@ -6,8 +6,9 @@ import { User } from './user.entity';
 
 /**
  * Estados de un token (08-sobres, «Estados de un token»). `en_venta_plataforma` existe en el
- * modelo para que la invariante de FR-023 lo contemple, pero ningún flujo de esta feature lo
- * produce (research #15).
+ * modelo para que la invariante de FR-023 lo contemple, pero ningún flujo lo produce todavía
+ * (08 research #15). Un token a la venta, de un usuario o de la plataforma, tiene una publicación
+ * activa en `listing` (09-mercado): el Market lee eso, no el estado del token.
  */
 export enum TokenStatus {
   RESERVED = 'reservado',
@@ -15,12 +16,6 @@ export enum TokenStatus {
   OWNED = 'de_usuario',
   PLATFORM_SALE = 'en_venta_plataforma',
 }
-
-/**
- * Estados en que un token está a la venta: los que muestra el Market (08-sobres FR-070). Hoy
- * solo la venta de la plataforma; la spec del mercado va a sumar las publicaciones de usuarios.
- */
-export const FOR_SALE_TOKEN_STATUSES: readonly TokenStatus[] = [TokenStatus.PLATFORM_SALE];
 
 /**
  * Uno de los 100 tokens de un jugador: una carta (FR-028). El estado y el dueño actuales están
