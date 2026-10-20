@@ -204,7 +204,7 @@ export function Pack({
                 ? (e) => {
                     if (e.key !== 'Enter' && e.key !== ' ') return;
                     e.preventDefault();
-                    open();
+                    void open();
                   }
                 : undefined
             }
