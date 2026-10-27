@@ -77,6 +77,7 @@ export class QuoteDto {
     dto.season = quote.season;
     dto.strategy = {
       key: quote.strategyVersion.strategy.key,
+      name: quote.strategyVersion.strategy.name,
       version: quote.strategyVersion.version,
     };
     dto.positionProfile = quote.positionProfile;

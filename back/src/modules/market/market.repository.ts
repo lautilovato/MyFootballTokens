@@ -208,10 +208,26 @@ export class MarketRepository {
   async purchase(input: PurchaseInput): Promise<PurchaseRow> {
     return this.em.fork().transactional(async (tx) => {
       const [listing] = await tx.execute<
-        { token_id: string; player_id: string; seller_id: string | null; status: ListingStatus; serial: number; price: number; rarity: string }[]
+        {
+          token_id: string;
+          player_id: string;
+          seller_id: string | null;
+          status: ListingStatus;
+          serial: number;
+          price: number;
+          rarity: string;
+          quote_id: string | null;
+        }[]
       >(
+        // `quote_id` se lee en la misma sentencia que el precio: así los dos salen del mismo
+        // snapshot y la compra queda atada a la cotización que fijó su precio (10-historial
+        // research #1). El recálculo actualiza `base_value` y agrega la cotización en una sola
+        // transacción, por lo que nunca se ve uno sin el otro.
         `select l."token_id", l."player_id", l."seller_id", l."status", t."serial",
-                ${PRICE_SQL} as "price", ${RARITY.sql} as "rarity"
+                ${PRICE_SQL} as "price", ${RARITY.sql} as "rarity",
+                (select q."id" from "player_quote" q
+                  where q."player_id" = l."player_id"
+                  order by q."calculated_at" desc limit 1) as "quote_id"
            from "listing" l
            join "token" t on t."id" = l."token_id"
            join "player" p on p."id" = l."player_id"
@@ -296,8 +312,8 @@ export class MarketRepository {
         `insert into "token_purchase"
            ("id", "listing_id", "token_id", "player_id", "buyer_id", "seller_id", "accepted_price", "price", "rarity",
             "buyer_balance_before", "buyer_balance_after", "seller_balance_before", "seller_balance_after",
-            "buyer_movement_id", "seller_movement_id", "correlation_id", "created_at")
-         values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, now()) returning "created_at"`,
+            "buyer_movement_id", "seller_movement_id", "quote_id", "correlation_id", "created_at")
+         values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, now()) returning "created_at"`,
         [
           purchaseId,
           input.listingId,
@@ -314,6 +330,7 @@ export class MarketRepository {
           sellerAfter,
           buyerMovementId,
           sellerMovementId,
+          listing.quote_id,
           input.correlationId,
         ],
       );

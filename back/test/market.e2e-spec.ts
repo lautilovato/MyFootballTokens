@@ -28,6 +28,7 @@ import {
   snapshotMarketState,
   withdraw,
 } from './support/market-fixtures';
+import { seedQuote } from './support/quote-fixtures';
 
 jest.setTimeout(180_000);
 
@@ -300,6 +301,32 @@ describe('Market (e2e)', () => {
   }
 
   describe('US2 — comprar (FR-010 a FR-019)', () => {
+    it('10 research #1: la compra guarda la cotización vigente, y su precio es el que se cobró', async () => {
+      await seedQuote(em, player('Mario Mercado'), { price: 250, calculatedAt: new Date(Date.now() - 120_000) });
+      const latest = await seedQuote(em, player('Mario Mercado'), {
+        price: 300,
+        calculatedAt: new Date(Date.now() - 60_000),
+        strategyKey: 'e2e-prestige',
+        strategyName: 'E2E Prestigio',
+        version: 2,
+      });
+      const { beto, listings } = await market('quote-id');
+
+      const { body } = await purchase(app, beto.token, { listingId: listings[0], acceptedPrice: 300 }).expect(201);
+
+      const [row] = await em
+        .fork()
+        .execute<{ quote_id: string; price: number; quote_price: number }[]>(
+          `select tp."quote_id", tp."price", q."price" as "quote_price"
+             from "token_purchase" tp join "player_quote" q on q."id" = tp."quote_id"
+            where tp."id" = ?`,
+          [body.id],
+        );
+      expect(row.quote_id).toBe(latest.id);
+      expect(Number(row.price)).toBe(300);
+      expect(Number(row.quote_price)).toBe(Number(row.price));
+    });
+
     it('compra una carta al precio vigente; el vendedor recibe exactamente lo pagado (US2-2, US2-3, FR-018)', async () => {
       const { ana, beto, listings } = await market('compra');
       const before = await totalCredits();

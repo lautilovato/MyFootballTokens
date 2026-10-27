@@ -7,6 +7,7 @@ import type { MarketListingsProps } from '../components/MarketListings';
 import { MarketFilters } from '../components/MarketFilters';
 import { PlayerDetailPanel } from '../components/PlayerDetailPanel';
 import { PlayerGrid } from '../components/PlayerGrid';
+import { PriceHistoryModal } from '../components/PriceHistoryModal';
 import {
   fetchPlayerListings,
   marketErrorMessage,
@@ -15,6 +16,8 @@ import {
   type PlayerListingsPage,
 } from '../services/market.service';
 import { extractApiErrorCode } from '../services/packs.service';
+import { strategyLabel } from '../services/quote.mapper';
+import { fetchCurrentQuote } from '../services/quotes.service';
 import { useAuth } from '../services/useAuth';
 import {
   fetchLeagues,
@@ -32,6 +35,7 @@ import {
   nextFilters,
   paramsFromFilters,
 } from './home-filters';
+import { usePriceHistory } from './usePriceHistory';
 
 /** Cartas a la venta por página en el panel de detalle (09-mercado FR-027). */
 export const LISTINGS_PAGE_SIZE = 10;
@@ -68,6 +72,9 @@ export default function HomePage() {
   const [pendingBuy, setPendingBuy] = useState<PlayerListing | null>(null);
   const [buying, setBuying] = useState(false);
   const [buyMessage, setBuyMessage] = useState<MarketListingsProps['message']>(null);
+  // Estrategia de la cotización vigente del jugador abierto (10-historial-operaciones FR-020).
+  const [quoteLabel, setQuoteLabel] = useState<string | null>(null);
+  const priceHistory = usePriceHistory();
   // Se incrementan para volver a pedir el listado del Market y las cartas a la venta (FR-041).
   const [marketVersion, setMarketVersion] = useState(0);
   const [listingsVersion, setListingsVersion] = useState(0);
@@ -125,6 +132,25 @@ export default function HomePage() {
       })
       .finally(() => {
         if (!cancelled) setDetailLoading(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [selectedId]);
+
+  // La línea «Cotizado con …» del panel es opcional: si el pedido falla, el panel sigue igual.
+  useEffect(() => {
+    setQuoteLabel(null);
+    if (!selectedId) return;
+
+    let cancelled = false;
+    fetchCurrentQuote(selectedId)
+      .then((quote) => {
+        if (!cancelled) setQuoteLabel(quote ? strategyLabel(quote.strategy) : null);
+      })
+      .catch(() => {
+        if (!cancelled) setQuoteLabel(null);
       });
 
     return () => {
@@ -303,6 +329,9 @@ export default function HomePage() {
             loading={detailLoading}
             error={detailError}
             onClose={closePanel}
+            priceHistoryView={
+              detail ? { quoteLabel, onOpen: () => priceHistory.openFor(detail.id, detail.name) } : null
+            }
             market={{
               price: listings?.price ?? null,
               listings: listings?.data ?? [],
@@ -319,6 +348,20 @@ export default function HomePage() {
           />
         )}
       </div>
+
+      <PriceHistoryModal
+        open={priceHistory.state.open}
+        playerName={priceHistory.state.playerName}
+        quotes={priceHistory.state.quotes}
+        loading={priceHistory.state.loading}
+        error={priceHistory.state.error}
+        selectedIndex={priceHistory.state.selectedIndex}
+        highlightIndex={priceHistory.state.highlightIndex}
+        onSelect={priceHistory.select}
+        onRetry={priceHistory.retry}
+        onClose={priceHistory.close}
+        filters={priceHistory.filters}
+      />
 
       <ConfirmModal
         open={pendingBuy !== null}

@@ -8,6 +8,12 @@ interface PlayerDetailPanelProps {
   onClose: () => void;
   /** Cartas a la venta del jugador y la compra (09-mercado FR-038); nulo para no mostrar el bloque. */
   market?: MarketListingsProps | null;
+  /**
+   * Gráfico completo de cotizaciones (10-historial-operaciones FR-019, FR-020): `onOpen` abre el
+   * modal y `quoteLabel` es la estrategia de la cotización vigente («Performance v2»), nula si
+   * todavía no se conoce.
+   */
+  priceHistoryView?: { quoteLabel: string | null; onOpen: () => void } | null;
 }
 
 /**
@@ -77,7 +83,7 @@ function historySummary(history: number[]): string {
  * (09-mercado FR-038, que reemplaza la maqueta de 06 FR-032 y FR-033) es `MarketListings`: la
  * página le pasa las cartas a la venta y decide qué hacer al comprar.
  */
-export function PlayerDetailPanel({ player, loading, error, onClose, market }: PlayerDetailPanelProps) {
+export function PlayerDetailPanel({ player, loading, error, onClose, market, priceHistoryView }: PlayerDetailPanelProps) {
   return (
     // Siempre a la vista, sin importar hasta dónde se scrolleó la grilla: en desktop queda
     // fijo (sticky) en su columna; en mobile, donde la columna quedaría debajo de toda la
@@ -134,17 +140,32 @@ export function PlayerDetailPanel({ player, loading, error, onClose, market }: P
           <section className="mb-5 rounded border border-white/10 p-3" aria-label="Historial de cotizaciones">
             <div className="mb-1 flex items-baseline justify-between">
               <h3 className="title-display text-xs text-slate-300">Price History</h3>
-              {player.priceHistory.length >= 2 && (
-                <span className={player.changePct >= 0 ? 'text-xs text-neon-green' : 'text-xs text-error-red'}>
-                  {player.changePct > 0 ? '+' : ''}
-                  {player.changePct.toFixed(1)}%
-                </span>
-              )}
+              <span className="flex items-baseline gap-3">
+                {player.priceHistory.length >= 2 && (
+                  <span className={player.changePct >= 0 ? 'text-xs text-neon-green' : 'text-xs text-error-red'}>
+                    {player.changePct > 0 ? '+' : ''}
+                    {player.changePct.toFixed(1)}%
+                  </span>
+                )}
+                {/* Con al menos una cotización hay algo que ver en el gráfico completo (FR-019). */}
+                {priceHistoryView && player.priceHistory.length >= 1 && (
+                  <button
+                    type="button"
+                    onClick={priceHistoryView.onOpen}
+                    className="text-xs text-neon-blue underline-offset-2 hover:underline"
+                  >
+                    Ver más
+                  </button>
+                )}
+              </span>
             </div>
             <div className={player.changePct >= 0 ? 'text-neon-green' : 'text-error-red'}>
               <PriceChart history={player.priceHistory} />
             </div>
             <p className="mt-1 text-xs text-slate-500">{historySummary(player.priceHistory)}</p>
+            {priceHistoryView?.quoteLabel && player.priceHistory.length >= 1 && (
+              <p className="text-xs text-slate-400">Cotizado con {priceHistoryView.quoteLabel}</p>
+            )}
           </section>
 
           <dl className="mb-5 space-y-1 text-sm">

@@ -185,7 +185,7 @@ describe('Valuation strategies (e2e)', () => {
     expect(quote.breakdown.find((b) => b.metric === 'goals')?.weight).toBe(0.25);
 
     const { body } = await get(`/quotes/players/${playerIds.get('Delantero')}/current`).expect(200);
-    expect(body.quote.strategy).toEqual({ key: 'performance', version: 1 });
+    expect(body.quote.strategy).toEqual({ key: 'performance', name: 'Performance', version: 1 });
   });
 
   it('las cotizaciones nuevas usan la versión vigente', async () => {

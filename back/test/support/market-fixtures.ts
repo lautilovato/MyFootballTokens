@@ -29,6 +29,11 @@ export function operations(app: INestApplication, jwt: string, query = '') {
   return request(app.getHttpServer()).get(`/market/operations${query}`).set(...auth(jwt));
 }
 
+/** 10-historial-operaciones: cartas adquiridas y vendidas del usuario (`GET /history/operations`). */
+export function operationsHistory(app: INestApplication, jwt: string, query = '') {
+  return request(app.getHttpServer()).get(`/history/operations${query}`).set(...auth(jwt));
+}
+
 /**
  * Le da al usuario `count` tokens `reservado` del jugador, como si los hubiera sacado de un sobre:
  * pasan a `de_usuario` con su evento de entrega, así el historial y la invariante «el último evento

@@ -21,6 +21,7 @@ import { ValuationStrategy } from '../src/infrastructure/database/entities/valua
 import { QuotesRepository } from '../src/modules/quotes/quotes.repository';
 import { QUOTES_CRON_JOB_NAME, QuotesService } from '../src/modules/quotes/quotes.service';
 import { cleanPacksData } from './support/clean-database';
+import { type SeededQuote, seedQuote } from './support/quote-fixtures';
 
 const SEASON = '2025-2026';
 const ADMIN_KEY_HEADER = 'x-api-key';
@@ -217,7 +218,7 @@ describe('Quotes (e2e)', () => {
       expect(res.body).toMatchObject({
         status: QuoteRunStatus.COMPLETED,
         trigger: QuoteRunTrigger.MANUAL,
-        strategy: { key: 'performance', version: 1 },
+        strategy: { key: 'performance', name: expect.any(String), version: 1 },
         season: SEASON,
         quotedCount: WITH_STATS,
         skippedCount: 1,
@@ -279,7 +280,7 @@ describe('Quotes (e2e)', () => {
 
     it('FR-028: una estrategia puntual queda registrada en la corrida', async () => {
       const res = await recalculate({ strategyKey: 'prestige' }).expect(200);
-      expect(res.body.strategy).toEqual({ key: 'prestige', version: 1 });
+      expect(res.body.strategy).toEqual({ key: 'prestige', name: expect.any(String), version: 1 });
 
       const estrella = await latestQuote('Estrella');
       expect(estrella.breakdown.find((b) => b.metric === 'worldReputation')?.weight).toBe(0.6);
@@ -397,7 +398,7 @@ describe('Quotes (e2e)', () => {
         score: Number(latest.score),
         origin: QuoteRunTrigger.MANUAL,
         season: SEASON,
-        strategy: { key: expect.any(String), version: 1 },
+        strategy: { key: expect.any(String), name: expect.any(String), version: 1 },
         previousPrice: previous.price,
         changePct: Number((((latest.price - previous.price) / previous.price) * 100).toFixed(1)),
       });
@@ -440,6 +441,18 @@ describe('Quotes (e2e)', () => {
       const now = (await current('Defensor').expect(200)).body.quote;
       expect(last.price).toBe(now.price);
       expect(last.calculatedAt).toBe(now.calculatedAt);
+    });
+
+    it('10 FR-023: cada cotización del historial y la actual informan la estrategia con su nombre legible', async () => {
+      await recalculate().expect(200);
+
+      const { body } = await history('Defensor', '?limit=200').expect(200);
+      for (const quote of body.data) {
+        expect(quote.strategy).toEqual({ key: expect.any(String), name: expect.any(String), version: expect.any(Number) });
+        expect(quote.strategy.name.length).toBeGreaterThan(0);
+      }
+      const now = (await current('Defensor').expect(200)).body.quote;
+      expect(now.strategy.name).toBe(body.data[body.data.length - 1].strategy.name);
     });
 
     it('US2-4: acota por cantidad y por rango de fechas, con total para paginar', async () => {
@@ -755,7 +768,7 @@ describe('Quotes (e2e)', () => {
       expect([...starts].sort((a, b) => b - a)).toEqual(starts);
 
       const completed = body.data.find((r: { status: string }) => r.status === 'COMPLETED');
-      expect(completed.strategy).toEqual({ key: expect.any(String), version: expect.any(Number) });
+      expect(completed.strategy).toEqual({ key: expect.any(String), name: expect.any(String), version: expect.any(Number) });
     });
 
     it('la lista de corridas exige la clave administrativa y valida la paginación', async () => {
@@ -765,6 +778,146 @@ describe('Quotes (e2e)', () => {
         .set('Authorization', `Bearer ${token}`)
         .expect(401);
       await runs('?limit=101').expect(400);
+    });
+  });
+
+  // ------------------------------------------- 10-historial-operaciones — cotización en un instante
+
+  describe('US3 (10) — GET /quotes/players/:id/at', () => {
+    const DAY = 24 * 60 * 60 * 1000;
+    const daysAgo = (n: number) => new Date(Date.now() - n * DAY);
+    let seeded: { playerId: string; neverId: string; q1: SeededQuote; q2: SeededQuote; q3: SeededQuote };
+
+    beforeAll(async () => {
+      const team = await em.fork().findOneOrFail(Team, { name: 'Quotes A FC' });
+      const fork = em.fork();
+      const player = fork.create(Player, {
+        fullName: 'Jugador En Fecha',
+        position: PlayerPosition.MF,
+        baseValue: '0.00',
+        team,
+        createdAt: new Date(),
+      });
+      const never = fork.create(Player, {
+        fullName: 'Jugador Nunca Cotizado',
+        position: PlayerPosition.MF,
+        baseValue: '0.00',
+        team,
+        createdAt: new Date(),
+      });
+      fork.persist([player, never]);
+      await fork.flush();
+
+      const q1 = await seedQuote(em, player.id, { price: 100, calculatedAt: daysAgo(30), strategyKey: 'e2e-a', strategyName: 'E2E Alfa', version: 1 });
+      const q2 = await seedQuote(em, player.id, { price: 200, calculatedAt: daysAgo(20), strategyKey: 'e2e-a', strategyName: 'E2E Alfa', version: 2 });
+      const q3 = await seedQuote(em, player.id, { price: 300, calculatedAt: daysAgo(10), strategyKey: 'e2e-b', strategyName: 'E2E Beta', version: 1 });
+      seeded = { playerId: player.id, neverId: never.id, q1, q2, q3 };
+    });
+
+    afterAll(async () => {
+      const fork = em.fork();
+      await fork.execute(`delete from "player_quote" where "player_id" in (?, ?)`, [seeded.playerId, seeded.neverId]);
+      await fork.execute(`delete from "quote_run" where "correlation_id" = 'e2e-seed-quote'`);
+      await fork.execute(
+        `delete from "valuation_strategy_version" where "strategy_id" in (select "id" from "valuation_strategy" where "key" like 'e2e-%')`,
+      );
+      await fork.execute(`delete from "valuation_strategy" where "key" like 'e2e-%'`);
+      await fork.execute(`delete from "player" where "id" in (?, ?)`, [seeded.playerId, seeded.neverId]);
+    });
+
+    function at(playerId: string, instant: Date | string | null) {
+      const query = instant === null ? '' : `?at=${encodeURIComponent(instant instanceof Date ? instant.toISOString() : instant)}`;
+      return request(app.getHttpServer())
+        .get(`/quotes/players/${playerId}/at${query}`)
+        .set('Authorization', `Bearer ${token}`);
+    }
+
+    it('un instante entre dos cotizaciones devuelve la anterior, con su estrategia y versión (FR-028, FR-029)', async () => {
+      const { body } = await at(seeded.playerId, daysAgo(15)).expect(200);
+
+      expect(body).toMatchObject({ playerId: seeded.playerId, quoted: true, firstQuotedAt: null });
+      expect(body.quote).toMatchObject({
+        price: 200,
+        calculatedAt: seeded.q2.calculatedAt.toISOString(),
+        strategy: { key: 'e2e-a', name: 'E2E Alfa', version: 2 },
+      });
+    });
+
+    it('un instante exactamente igual a una cotización devuelve esa misma: es inclusivo', async () => {
+      const { body } = await at(seeded.playerId, seeded.q3.calculatedAt).expect(200);
+      expect(body.quote).toMatchObject({ price: 300, strategy: { key: 'e2e-b', name: 'E2E Beta', version: 1 } });
+    });
+
+    it('un instante posterior a la última devuelve la última', async () => {
+      const { body } = await at(seeded.playerId, new Date()).expect(200);
+      expect(body.quote.price).toBe(300);
+    });
+
+    it('un instante anterior a la primera responde quoted=false con la fecha de la primera, sin precio (FR-030)', async () => {
+      const { body } = await at(seeded.playerId, daysAgo(40)).expect(200);
+      expect(body).toMatchObject({ quoted: false, quote: null, firstQuotedAt: seeded.q1.calculatedAt.toISOString() });
+    });
+
+    it('un jugador nunca cotizado responde quoted=false y firstQuotedAt nulo; no es un error', async () => {
+      const { body } = await at(seeded.neverId, new Date()).expect(200);
+      expect(body).toMatchObject({ quoted: false, quote: null, firstQuotedAt: null });
+    });
+
+    it('una cotización posterior, de otra estrategia, no cambia el resultado de un instante anterior (FR-017)', async () => {
+      const before = (await at(seeded.playerId, daysAgo(15)).expect(200)).body;
+      await seedQuote(em, seeded.playerId, { price: 999, calculatedAt: daysAgo(1), strategyKey: 'e2e-c', strategyName: 'E2E Gamma', version: 1 });
+
+      const after = (await at(seeded.playerId, daysAgo(15)).expect(200)).body;
+      expect(after.quote).toEqual(before.quote);
+      expect((await at(seeded.playerId, new Date()).expect(200)).body.quote.strategy).toEqual({
+        key: 'e2e-c',
+        name: 'E2E Gamma',
+        version: 1,
+      });
+    });
+
+    it('acepta el final de «hoy» de cualquier zona horaria, pero rechaza una fecha futura (FR-031)', async () => {
+      await at(seeded.playerId, new Date(Date.now() + 12 * 60 * 60 * 1000)).expect(200);
+
+      const future = await at(seeded.playerId, new Date(Date.now() + 3 * DAY)).expect(422);
+      expect(future.body).toMatchObject({ code: 'VALIDATION_ERROR', correlationId: expect.any(String) });
+    });
+
+    it('rechaza un instante ausente o mal formado con VALIDATION_ERROR', async () => {
+      for (const instant of [null, 'ayer', '2026-13-45', '']) {
+        const res = await at(seeded.playerId, instant).expect(422);
+        expect(res.body).toMatchObject({ code: 'VALIDATION_ERROR', message: expect.any(String), correlationId: expect.any(String) });
+      }
+    });
+
+    it('un playerId que no es un UUID es VALIDATION_ERROR, y uno inexistente es PLAYER_NOT_FOUND', async () => {
+      const malformed = await at('no-es-un-uuid', new Date()).expect(422);
+      expect(malformed.body.code).toBe('VALIDATION_ERROR');
+
+      const missing = await at(randomUUID(), new Date()).expect(404);
+      expect(missing.body).toMatchObject({ code: 'PLAYER_NOT_FOUND', correlationId: expect.any(String) });
+    });
+
+    it('exige sesión de usuario', async () => {
+      const res = await request(app.getHttpServer())
+        .get(`/quotes/players/${seeded.playerId}/at?at=${encodeURIComponent(new Date().toISOString())}`)
+        .expect(401);
+      expect(res.body).toMatchObject({ code: 'UNAUTHENTICATED', correlationId: expect.any(String) });
+    });
+
+    it('es de solo lectura: no cambia la cantidad de cotizaciones (FR-037)', async () => {
+      const before = await quoteCount();
+      await at(seeded.playerId, daysAgo(15)).expect(200);
+      await at(seeded.playerId, daysAgo(40)).expect(200);
+      expect(await quoteCount()).toBe(before);
+    });
+
+    it('el historial de 07 conserva su formato de error: 400 con el cuerpo por defecto de Nest', async () => {
+      const res = await request(app.getHttpServer())
+        .get(`/quotes/players/${seeded.playerId}/history?from=ayer`)
+        .set('Authorization', `Bearer ${token}`)
+        .expect(400);
+      expect(res.body.code).toBeUndefined();
     });
   });
 });

@@ -196,6 +196,57 @@ describe('PlayerDetailPanel', () => {
       expect(container.textContent).toContain('Hay una sola cotización');
     });
 
+    /** 10-historial-operaciones FR-019, FR-020 — «Ver más» y la estrategia de la cotización vigente. */
+    describe('gráfico completo', () => {
+      const viewOf = (quoteLabel: string | null = 'Performance v2') => ({ quoteLabel, onOpen: vi.fn() });
+      const verMas = () => [...container.querySelectorAll('button')].find((b) => b.textContent === 'Ver más');
+
+      it('con cotizaciones ofrece «Ver más» y lo avisa al apretarlo', () => {
+        const view = viewOf();
+        render(<PlayerDetailPanel player={PLAYER} loading={false} error={null} onClose={() => {}} priceHistoryView={view} />);
+
+        expect(verMas()).toBeDefined();
+        act(() => verMas()!.click());
+        expect(view.onOpen).toHaveBeenCalledTimes(1);
+      });
+
+      it('con una sola cotización también lo ofrece', () => {
+        const player = { ...PLAYER, priceHistory: [1000], changePct: 0 };
+        render(<PlayerDetailPanel player={player} loading={false} error={null} onClose={() => {}} priceHistoryView={viewOf()} />);
+        expect(verMas()).toBeDefined();
+      });
+
+      it('sin cotizaciones no lo ofrece', () => {
+        const player = { ...PLAYER, priceHistory: [], changePct: 0, marketValue: 0 };
+        render(<PlayerDetailPanel player={player} loading={false} error={null} onClose={() => {}} priceHistoryView={viewOf()} />);
+        expect(verMas()).toBeUndefined();
+        expect(container.textContent).not.toContain('Cotizado con');
+      });
+
+      it('sin priceHistoryView no ofrece «Ver más» ni la línea de estrategia', () => {
+        render(<PlayerDetailPanel player={PLAYER} loading={false} error={null} onClose={() => {}} />);
+        expect(verMas()).toBeUndefined();
+        expect(container.textContent).not.toContain('Cotizado con');
+      });
+
+      it('indica con qué estrategia y versión se calculó la cotización vigente', () => {
+        render(<PlayerDetailPanel player={PLAYER} loading={false} error={null} onClose={() => {}} priceHistoryView={viewOf()} />);
+        expect(container.textContent).toContain('Cotizado con Performance v2');
+      });
+
+      it('si todavía no se conoce la estrategia omite la línea y conserva «Ver más»', () => {
+        render(<PlayerDetailPanel player={PLAYER} loading={false} error={null} onClose={() => {}} priceHistoryView={viewOf(null)} />);
+        expect(container.textContent).not.toContain('Cotizado con');
+        expect(verMas()).toBeDefined();
+      });
+
+      it('el mini-gráfico sigue siendo el de las últimas cotizaciones', () => {
+        render(<PlayerDetailPanel player={PLAYER} loading={false} error={null} onClose={() => {}} priceHistoryView={viewOf()} />);
+        const polyline = container.querySelector('svg[aria-label="Historial de cotizaciones"] polyline');
+        expect(polyline?.getAttribute('points')?.split(' ')).toHaveLength(30);
+      });
+    });
+
     it('un jugador nunca cotizado no muestra gráfica ni una variación inventada', () => {
       const player = { ...PLAYER, priceHistory: [], changePct: 0, marketValue: 0 };
       render(<PlayerDetailPanel player={player} loading={false} error={null} onClose={() => {}} />);

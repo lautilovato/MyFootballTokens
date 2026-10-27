@@ -3,6 +3,7 @@ import { Entity, PrimaryKey, Property, ManyToOne, OneToOne } from '@mikro-orm/de
 import { CreditMovement } from './credit-movement.entity';
 import { Listing } from './listing.entity';
 import { Player } from './player.entity';
+import { PlayerQuote } from './player-quote.entity';
 import { Token } from './token.entity';
 import { User } from './user.entity';
 
@@ -61,6 +62,14 @@ export class TokenPurchase {
 
   @ManyToOne(() => CreditMovement, { nullable: true })
   sellerMovement?: CreditMovement | null;
+
+  /**
+   * La cotización del jugador vigente cuando se fijó el precio (10-historial-operaciones,
+   * research #1). Con ella, la estrategia y la versión de la compra son parte de su registro
+   * inmutable. Nula solo en compras anteriores a la migración para las que no se encontró una.
+   */
+  @ManyToOne(() => PlayerQuote, { nullable: true })
+  quote?: PlayerQuote | null;
 
   @Property({ type: 'string' })
   correlationId!: string;

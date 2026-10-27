@@ -10,6 +10,9 @@ export class StrategyRefDto {
   @ApiProperty({ example: 'performance' })
   key!: string;
 
+  @ApiProperty({ example: 'Performance', description: 'Nombre legible de la estrategia (10-historial-operaciones)' })
+  name!: string;
+
   @ApiProperty({ example: 1 })
   version!: number;
 }
@@ -55,7 +58,11 @@ export class QuoteRunResponseDto {
     dto.trigger = run.trigger;
     dto.status = run.status;
     dto.strategy = run.strategyVersion
-      ? { key: run.strategyVersion.strategy.key, version: run.strategyVersion.version }
+      ? {
+          key: run.strategyVersion.strategy.key,
+          name: run.strategyVersion.strategy.name,
+          version: run.strategyVersion.version,
+        }
       : null;
     dto.season = run.season ?? null;
     dto.startedAt = run.startedAt;

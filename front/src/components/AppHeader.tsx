@@ -11,8 +11,8 @@ const navClass = ({ isActive }: { isActive: boolean }) =>
   `bevel px-4 py-1 text-sm ${isActive ? 'bg-neon-blue/20 text-neon-blue' : 'bg-navy-card text-slate-200'}`;
 
 /**
- * Encabezado de las pantallas con sesión (08-sobres FR-052, FR-053): accesos a Sobres e
- * Inventario, saldo, usuario y cierre de sesión. Presentacional: recibe el saldo, no lo pide.
+ * Encabezado de las pantallas con sesión (08-sobres FR-052, FR-053): accesos a Sobres,
+ * Inventario y Mi perfil (10-historial-operaciones FR-001), saldo, usuario y cierre de sesión. Presentacional: recibe el saldo, no lo pide.
  */
 export function AppHeader({ username, balance, onLogout }: AppHeaderProps) {
   return (
@@ -26,6 +26,9 @@ export function AppHeader({ username, balance, onLogout }: AppHeaderProps) {
         </NavLink>
         <NavLink to="/inventory" className={navClass}>
           Mis cartas
+        </NavLink>
+        <NavLink to="/profile" className={navClass}>
+          Mi perfil
         </NavLink>
       </nav>
       <div className="flex items-center gap-4 text-sm">
