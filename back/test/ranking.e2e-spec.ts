@@ -94,6 +94,15 @@ describe('Ranking (e2e)', () => {
     expect(body.data.map((entry: { player: { name: string } }) => entry.player.name)).toEqual(TIED_NAMES.slice(0, RANKING_SIZE));
   });
 
+  it('el detalle del jugador usa el mismo conteo que el ranking (15-numero-de-carta FR-005)', async () => {
+    const detail = (name: string) =>
+      request(app.getHttpServer()).get(`/players/${player(name)}`).set('Authorization', `Bearer ${token}`).expect(200);
+    await grantTokens(em, userId, player('Ana Alta'), 3);
+
+    expect((await detail('Ana Alta')).body.inCirculation).toBe(3);
+    expect((await detail('Beto Bajo')).body.inCirculation).toBe(0);
+  });
+
   it('cuenta las cartas de usuarios, a la venta o no, y solo esas (FR-005)', async () => {
     await seedRun(STRATEGY, { 'Ana Alta': 900, 'Beto Bajo': 100 });
     const [listed] = await grantTokens(em, userId, player('Ana Alta'), 3);

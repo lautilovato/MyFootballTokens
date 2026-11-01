@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react';
 import type { ApiPlayerDetail } from '../services/players.service';
 import { MarketListings, type MarketListingsProps } from './MarketListings';
 
@@ -14,6 +15,8 @@ interface PlayerDetailPanelProps {
    * todavía no se conoce.
    */
   priceHistoryView?: { quoteLabel: string | null; onOpen: () => void } | null;
+  /** Lo que la página quiera ofrecer al final del panel, como vender la carta del inventario. */
+  children?: ReactNode;
 }
 
 /**
@@ -29,6 +32,21 @@ const METRICS: { label: string; key: keyof ApiPlayerDetail; suffix?: string }[] 
   { label: 'Regates por partido', key: 'dribbles' },
   { label: 'Entradas por partido', key: 'tackles' },
 ];
+
+const POSITION_LABEL: Record<ApiPlayerDetail['position'], string> = {
+  GK: 'Arquero',
+  DF: 'Defensor',
+  MF: 'Mediocampista',
+  FW: 'Delantero',
+  UNKNOWN: 'Sin dato',
+};
+
+const RARITY_LABEL: Record<ApiPlayerDetail['rarity'], string> = {
+  common: 'Común',
+  rare: 'Rara',
+  epic: 'Épica',
+  legendary: 'Legendaria',
+};
 
 /** Un valor nulo es "sin dato", que no es lo mismo que un cero real (FR-015). */
 function format(value: unknown, suffix = ''): string {
@@ -83,22 +101,21 @@ function historySummary(history: number[]): string {
  * (09-mercado FR-038, que reemplaza la maqueta de 06 FR-032 y FR-033) es `MarketListings`: la
  * página le pasa las cartas a la venta y decide qué hacer al comprar.
  */
-export function PlayerDetailPanel({ player, loading, error, onClose, market, priceHistoryView }: PlayerDetailPanelProps) {
+export function PlayerDetailPanel({ player, loading, error, onClose, market, priceHistoryView, children }: PlayerDetailPanelProps) {
   return (
-    // Siempre a la vista, sin importar hasta dónde se scrolleó la grilla: en desktop queda
-    // fijo (sticky) en su columna; en mobile, donde la columna quedaría debajo de toda la
-    // grilla, se muestra como hoja fija al pie de la pantalla. En ambos casos scrollea solo.
+    // Siempre a la vista, sin importar hasta dónde se scrolleó la grilla, y fuera del flujo para
+    // no mover las cartas: en desktop va fijo contra el borde derecho y, si no hay lugar al
+    // costado, queda por encima; en mobile es una hoja al pie de la pantalla. Scrollea solo.
     <aside
       className={
-        'fixed inset-x-0 bottom-0 z-40 max-h-[80vh] w-full shrink-0 overflow-y-auto ' +
+        'fixed inset-x-0 bottom-0 z-40 max-h-[80vh] w-full overflow-y-auto ' +
         'rounded-t-lg border-t border-white/10 bg-navy-card p-5 shadow-2xl ' +
-        'md:sticky md:inset-x-auto md:bottom-auto md:top-6 md:z-auto md:max-h-[calc(100vh-3rem)] ' +
-        'md:w-80 md:self-start md:rounded-none md:border-l md:border-t-0 md:bg-navy-card/60 md:shadow-none'
+        'md:inset-x-auto md:bottom-auto md:right-6 md:top-20 md:max-h-[calc(100vh-6rem)] md:w-80 md:rounded-lg md:border'
       }
       aria-label="Detalle del jugador"
     >
       <header className="mb-4 flex items-center justify-between">
-        <h2 className="title-display text-lg text-slate-100">Player Details</h2>
+        <h2 className="title-display text-lg text-slate-100">Detalle del jugador</h2>
         <button
           type="button"
           onClick={onClose}
@@ -120,8 +137,8 @@ export function PlayerDetailPanel({ player, loading, error, onClose, market, pri
               {player.club.name} · {player.league}
             </p>
             <p className="mt-2 text-sm text-slate-300">
-              OVR <strong className="text-gold">{player.ovr ?? 'Sin dato'}</strong> ·{' '}
-              {player.position} · {player.rarity}
+              Valoración <strong className="text-gold">{player.ovr ?? 'Sin dato'}</strong> ·{' '}
+              {POSITION_LABEL[player.position]} · {RARITY_LABEL[player.rarity]}
             </p>
             {player.season && (
               <p className="text-xs text-slate-500">Temporada {player.season}</p>
@@ -139,7 +156,7 @@ export function PlayerDetailPanel({ player, loading, error, onClose, market, pri
 
           <section className="mb-5 rounded border border-white/10 p-3" aria-label="Historial de cotizaciones">
             <div className="mb-1 flex items-baseline justify-between">
-              <h3 className="title-display text-xs text-slate-300">Price History</h3>
+              <h3 className="title-display text-xs text-slate-300">Historial de precios</h3>
               <span className="flex items-baseline gap-3">
                 {player.priceHistory.length >= 2 && (
                   <span className={player.changePct >= 0 ? 'text-xs text-neon-green' : 'text-xs text-error-red'}>
@@ -170,19 +187,20 @@ export function PlayerDetailPanel({ player, loading, error, onClose, market, pri
 
           <dl className="mb-5 space-y-1 text-sm">
             <div className="flex justify-between">
-              <dt className="text-slate-400">Market value</dt>
+              <dt className="text-slate-400">Valor de mercado</dt>
               <dd className="text-slate-100">{formatCredits(player.marketValue)}</dd>
             </div>
             <div className="flex justify-between">
-              <dt className="text-slate-400">Supply</dt>
+              <dt className="text-slate-400">Cartas en circulación</dt>
               <dd className="text-slate-100">
-                {player.supply.minted}/{player.supply.total}
+                {player.inCirculation}/{player.supply.total}
               </dd>
             </div>
           </dl>
 
           {/* 09-mercado FR-038: el bloque de compra lista las cartas a la venta. */}
           {market && <MarketListings {...market} />}
+          {children}
         </>
       )}
     </aside>

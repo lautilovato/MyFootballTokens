@@ -58,8 +58,8 @@ export default function HomePage() {
     <main className="flex min-h-screen flex-col bg-navy-deep text-slate-200">
       <AppHeader username={user?.username} balance={balance} onLogout={logout} isAdmin={user?.role === 'admin'} />
 
-      <div className="mx-auto flex w-full max-w-6xl flex-1 flex-col gap-4 p-4 sm:p-6">
-        <h1 className="title-display text-2xl text-slate-100">Menú principal</h1>
+      <div className="mx-auto flex w-full max-w-6xl flex-1 flex-col gap-4 p-6">
+        <h1 className="title-display text-3xl text-slate-100">Menú principal</h1>
 
         <nav aria-label="Menú principal" className="grid flex-1 grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4 lg:grid-rows-2">
           <MenuTile

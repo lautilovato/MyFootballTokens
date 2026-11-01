@@ -18,7 +18,7 @@ function apiPlayer(id: string, name: string): ApiPlayerCard {
     assists: 2,
     marketValue: 1200,
     changePct: 1.5,
-    supply: { minted: 100, total: 100 }, forSaleCount: 0,
+    supply: { minted: 100, total: 100 }, forSaleCount: 0, firstListedSerial: null,
     priceHistory: [1100, 1200],
   };
 }
@@ -65,18 +65,24 @@ describe('PlayerGrid', () => {
     expect(onSelect).toHaveBeenCalledWith('a');
   });
 
-  it('muestra debajo de cada carta cuántas hay a la venta (09-mercado FR-026)', () => {
+  it('muestra en la carta el número de la primera publicación (15-numero-de-carta FR-003)', () => {
     act(() => {
       root.render(
         <PlayerGrid
-          players={[{ ...apiPlayer('a', 'Bukayo Saka'), forSaleCount: 3 }, { ...apiPlayer('b', 'Declan Rice'), forSaleCount: 1 }]}
+          players={[{ ...apiPlayer('a', 'Bukayo Saka'), firstListedSerial: 82 }, apiPlayer('b', 'Declan Rice')]}
           selectedId={null}
           onSelect={vi.fn()}
         />,
       );
     });
-    const items = container.querySelectorAll('li');
-    expect(items[0].textContent).toContain('3 a la venta');
-    expect(items[1].textContent).toContain('1 a la venta');
+    const rarity = [...container.querySelectorAll('.pc__rarity')].map((el) => el.textContent);
+    expect(rarity).toEqual(['Rare 82/100', 'Rare /100']);
+  });
+
+  it('no muestra cuántas hay a la venta debajo de la carta (15-numero-de-carta)', () => {
+    act(() => {
+      root.render(<PlayerGrid players={[{ ...apiPlayer('a', 'Bukayo Saka'), forSaleCount: 3 }]} selectedId={null} onSelect={vi.fn()} />);
+    });
+    expect(container.textContent).not.toContain('a la venta');
   });
 });

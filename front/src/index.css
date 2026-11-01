@@ -43,6 +43,13 @@
   text-transform: uppercase;
 }
 
+/* Reserva la barra de scroll aunque la página no la necesite: si no, el contenido centrado
+   se corre al pasar de una página corta a una larga. Con el fondo de login y registro se
+   vería como una franja vacía. */
+html:not(:has([data-full-bleed])) {
+  scrollbar-gutter: stable;
+}
+
 body {
   margin: 0;
   background-color: var(--color-navy-deep);

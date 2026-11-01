@@ -17,7 +17,7 @@ function cardData(overrides: Partial<PlayerCardData> = {}): PlayerCardData {
     overall: 86,
     club: { name: 'Manchester City FC' },
     nationality: { name: 'Norway', code: 'no' },
-    token: { rarity: 'legendary', supply: 100, minted: 100 },
+    token: { rarity: 'legendary', supply: 100 },
     price: { current: 8450, currency: 'USD', changePct: 12.5, history: [8000, 8200, 8450] },
     stats: [
       { label: 'G', value: 29, title: 'Goles' },
@@ -80,8 +80,8 @@ describe('PlayerCard', () => {
     expect(text).toContain('Erling Haaland');
     expect(text).toContain('86');
     expect(text).toContain('Club: Manchester City FC');
-    expect(text).toContain('Legendary');
-    expect(text).toContain('Minted: 100/100');
+    expect(container.querySelector('.pc__rarity')?.textContent).toBe('Legendary /100');
+    expect(text).not.toContain('Minted');
     expect(text).toContain('$8,450');
     expect(text).toContain('+12.5%');
     expect(text).toContain('MFT collectible');
@@ -122,7 +122,7 @@ describe('PlayerCard', () => {
         player={cardData({
           photoUrl: 'https://example.test/haaland.png',
           club: { name: 'Manchester City FC', crestUrl: 'https://example.test/city.png' },
-          token: { rarity: 'rare', supply: 100, minted: 40, serial: 7 },
+          token: { rarity: 'rare', supply: 100, serial: 7 },
         })}
       />,
     );

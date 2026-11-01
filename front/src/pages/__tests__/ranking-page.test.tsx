@@ -27,7 +27,7 @@ function entry(rank: number, name: string, marketValue: number, inCirculation: n
     marketValue,
     changePct: 0,
     supply: { minted: 100, total: 100 },
-    forSaleCount: 0,
+    forSaleCount: 0, firstListedSerial: null,
     priceHistory: [],
   };
   return { rank, inCirculation, player };

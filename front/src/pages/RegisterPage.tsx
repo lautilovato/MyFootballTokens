@@ -57,7 +57,7 @@ export default function RegisterPage() {
           onChange={(e) => setValues({ ...values, username: e.target.value })}
         />
         <Input
-          label="Contrasena"
+          label="Contraseña"
           name="password"
           type="password"
           value={values.password}
@@ -69,9 +69,9 @@ export default function RegisterPage() {
           {submitting ? 'Creando...' : 'Crear cuenta'}
         </Button>
         <p className="text-center text-sm text-slate-400">
-          Ya tenes cuenta?{' '}
+          ¿Ya tenés cuenta?{' '}
           <Link to="/login" className="text-neon-blue hover:underline">
-            Inicia sesion
+            Iniciá sesión
           </Link>
         </p>
       </form>

@@ -29,8 +29,7 @@ export interface PlayerCardData {
   token: {
     rarity: Rarity;
     supply: number;
-    minted: number;
-    /** Número de serie del token que se está mostrando (opcional) */
+    /** Número de serie del token. Sin él, la carta es la del jugador y solo muestra «/supply» */
     serial?: number;
   };
   price: {

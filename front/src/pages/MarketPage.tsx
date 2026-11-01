@@ -16,14 +16,10 @@ import {
   type PlayerListingsPage,
 } from '../services/market.service';
 import { extractApiErrorCode } from '../services/packs.service';
-import { strategyLabel } from '../services/quote.mapper';
-import { fetchCurrentQuote } from '../services/quotes.service';
 import { useAuth } from '../services/useAuth';
 import {
   fetchLeagues,
-  fetchPlayerDetail,
   fetchPlayers,
-  type ApiPlayerDetail,
   type League,
   type PlayerFilters,
   type PlayersPage,
@@ -35,6 +31,7 @@ import {
   nextFilters,
   paramsFromFilters,
 } from './home-filters';
+import { usePlayerDetail } from './usePlayerDetail';
 import { usePriceHistory } from './usePriceHistory';
 
 /** Cartas a la venta por página en el panel de detalle (09-mercado FR-027). */
@@ -61,9 +58,7 @@ export default function MarketPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const [detail, setDetail] = useState<ApiPlayerDetail | null>(null);
-  const [detailLoading, setDetailLoading] = useState(false);
-  const [detailError, setDetailError] = useState<string | null>(null);
+  const { detail, loading: detailLoading, error: detailError, quoteLabel } = usePlayerDetail(selectedId, describeError);
 
   const [listings, setListings] = useState<PlayerListingsPage | null>(null);
   const [listingsPage, setListingsPage] = useState(1);
@@ -72,8 +67,6 @@ export default function MarketPage() {
   const [pendingBuy, setPendingBuy] = useState<PlayerListing | null>(null);
   const [buying, setBuying] = useState(false);
   const [buyMessage, setBuyMessage] = useState<MarketListingsProps['message']>(null);
-  // Estrategia de la cotización vigente del jugador abierto (10-historial-operaciones FR-020).
-  const [quoteLabel, setQuoteLabel] = useState<string | null>(null);
   const priceHistory = usePriceHistory();
   // Se incrementan para volver a pedir el listado del Market y las cartas a la venta (FR-041).
   const [marketVersion, setMarketVersion] = useState(0);
@@ -111,52 +104,6 @@ export default function MarketPage() {
       .then(setLeagues)
       .catch(() => setLeagues([])); // El panel se muestra igual, sin la sección de ligas.
   }, []);
-
-  useEffect(() => {
-    if (!selectedId) {
-      setDetail(null);
-      setDetailError(null);
-      return;
-    }
-
-    let cancelled = false;
-    setDetailLoading(true);
-    setDetailError(null);
-
-    fetchPlayerDetail(selectedId)
-      .then((result) => {
-        if (!cancelled) setDetail(result);
-      })
-      .catch((err: unknown) => {
-        if (!cancelled) setDetailError(describeError(err));
-      })
-      .finally(() => {
-        if (!cancelled) setDetailLoading(false);
-      });
-
-    return () => {
-      cancelled = true;
-    };
-  }, [selectedId]);
-
-  // La línea «Cotizado con …» del panel es opcional: si el pedido falla, el panel sigue igual.
-  useEffect(() => {
-    setQuoteLabel(null);
-    if (!selectedId) return;
-
-    let cancelled = false;
-    fetchCurrentQuote(selectedId)
-      .then((quote) => {
-        if (!cancelled) setQuoteLabel(quote ? strategyLabel(quote.strategy) : null);
-      })
-      .catch(() => {
-        if (!cancelled) setQuoteLabel(null);
-      });
-
-    return () => {
-      cancelled = true;
-    };
-  }, [selectedId]);
 
   // Al cambiar de jugador, la lista de cartas a la venta vuelve a su primera página.
   useEffect(() => {
