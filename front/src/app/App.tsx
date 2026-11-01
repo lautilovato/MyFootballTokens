@@ -3,6 +3,7 @@ import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom';
 import { AdminRoute } from '../components/AdminRoute';
 import { ProtectedRoute } from '../components/ProtectedRoute';
 import HomePage from '../pages/HomePage';
+import MarketPage from '../pages/MarketPage';
 import InventoryPage from '../pages/InventoryPage';
 import LoginPage from '../pages/LoginPage';
 import PacksPage from '../pages/PacksPage';
@@ -33,6 +34,15 @@ export default function App() {
               element={
                 <ProtectedRoute>
                   <HomePage />
+                </ProtectedRoute>
+              }
+            />
+            {/* 12-menu-principal FR-002: el mercado deja de ser la entrada. */}
+            <Route
+              path="/market"
+              element={
+                <ProtectedRoute>
+                  <MarketPage />
                 </ProtectedRoute>
               }
             />

@@ -182,7 +182,7 @@ describe('OperationHistory', () => {
     expect(text()).toContain('Todavía no hiciste operaciones');
     const links = [...container.querySelectorAll('a')].map((a) => [a.textContent, a.getAttribute('href')]);
     expect(links).toContainEqual(['Ir a Sobres', '/packs']);
-    expect(links).toContainEqual(['Ir al Market', '/']);
+    expect(links).toContainEqual(['Ir al Market', '/market']);
   });
 
   it('un filtro sin resultados no manda a abrir sobres', () => {

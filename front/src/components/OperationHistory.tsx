@@ -174,7 +174,7 @@ export function OperationHistory({
                 <Link to="/packs" className="bevel bg-neon-blue/20 px-5 py-2 text-neon-blue">
                   Ir a Sobres
                 </Link>
-                <Link to="/" className="bevel bg-navy-card px-5 py-2 text-slate-200">
+                <Link to="/market" className="bevel bg-navy-card px-5 py-2 text-slate-200">
                   Ir al Market
                 </Link>
               </div>

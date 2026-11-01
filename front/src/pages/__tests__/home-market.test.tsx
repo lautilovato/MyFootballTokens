@@ -2,7 +2,7 @@ import { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { MemoryRouter } from 'react-router-dom';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import HomePage, { LISTINGS_PAGE_SIZE } from '../HomePage';
+import MarketPage, { LISTINGS_PAGE_SIZE } from '../MarketPage';
 import { hasActiveFilters } from '../home-filters';
 import { fetchPlayerListings, purchaseListing, type PlayerListingsPage } from '../../services/market.service';
 import { fetchLeagues, fetchPlayerDetail, fetchPlayers, type ApiPlayerDetail } from '../../services/players.service';
@@ -75,7 +75,7 @@ async function render(path: string) {
   await act(async () => {
     root.render(
       <MemoryRouter initialEntries={[path]}>
-        <HomePage />
+        <MarketPage />
       </MemoryRouter>,
     );
   });
