@@ -43,12 +43,13 @@ describe('AppHeader', () => {
     expect(links).toContainEqual(['Mercado', '/market']);
   });
 
-  it('la barra solo tiene los accesos a Mercado y Sobres', () => {
+  it('la barra solo tiene los accesos a Mercado, Sobres y Ranking', () => {
     render(2000);
     const links = [...container.querySelectorAll('nav a')].map((a) => [a.textContent, a.getAttribute('href')]);
     expect(links).toEqual([
       ['Mercado', '/market'],
       ['Sobres', '/packs'],
+      ['Ranking', '/ranking'],
     ]);
   });
 

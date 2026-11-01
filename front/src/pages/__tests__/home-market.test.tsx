@@ -125,7 +125,7 @@ describe('Compra desde el detalle del jugador', () => {
     assists: 1,
     marketValue: 300,
     changePct: 0,
-    supply: { minted: 100, total: 100 }, forSaleCount: 0,
+    supply: { minted: 100, total: 100 }, forSaleCount: 0, firstListedSerial: null,
     priceHistory: [],
     league: 'E2E',
     season: '2025-2026',
@@ -224,7 +224,7 @@ describe('Gráfico completo de cotizaciones desde el detalle', () => {
     marketValue: 300,
     changePct: 5,
     supply: { minted: 100, total: 100 },
-    forSaleCount: 0,
+    forSaleCount: 0, firstListedSerial: null,
     priceHistory: [280, 300],
     league: 'E2E',
     season: '2025-2026',
@@ -305,7 +305,7 @@ describe('Gráfico completo de cotizaciones desde el detalle', () => {
     await act(async () => button('Ver más').click());
 
     expect(modal().querySelector('[role="alert"]')?.textContent).toContain('No se pudieron cargar las cotizaciones');
-    expect(container.textContent).toContain('Player Details');
+    expect(container.textContent).toContain('Detalle del jugador');
 
     await act(async () => button('Reintentar').click());
     expect(allQuotes).toHaveBeenCalledTimes(2);

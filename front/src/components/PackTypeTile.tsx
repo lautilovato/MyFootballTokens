@@ -47,7 +47,7 @@ export function PackTypeTile({
 }: PackTypeTileProps) {
   return (
     <article className="flex flex-col items-center gap-3" aria-label={`Sobre ${pack.name}`}>
-      <div className={`w-48 ${disabledReason ? 'opacity-50 grayscale' : ''}`}>
+      <div className={`w-full max-w-60 ${disabledReason ? 'opacity-50 grayscale' : ''}`}>
         <Pack pack={pack} openable={disabledReason === null} onOpenRequest={onOpenRequest} onOpened={onOpened} />
       </div>
       <p className="title-display text-lg text-gold-bright">{price.toLocaleString('es-AR')} créditos</p>

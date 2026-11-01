@@ -133,10 +133,12 @@ export default function PacksPage() {
       <AppHeader username={user?.username} balance={balance} onLogout={logout} isAdmin={user?.role === 'admin'} />
 
       <div className="mx-auto max-w-6xl p-6">
-        <h1 className="title-display mb-2 text-3xl text-slate-100">Sobres</h1>
-        <p className="mb-6 text-sm text-slate-400">
-          Cada sobre trae cartas de jugadores. Las probabilidades muestran lo que queda en los sobres sin abrir.
-        </p>
+        <h1 className={`title-display text-3xl text-slate-100 ${opening ? 'mb-6' : 'mb-2'}`}>Sobres</h1>
+        {!opening && (
+          <p className="mb-6 text-sm text-slate-400">
+            Cada sobre trae cartas de jugadores. Las probabilidades muestran lo que queda en los sobres sin abrir.
+          </p>
+        )}
 
         {message && (
           <p role="alert" className="bevel mb-6 bg-error-red/10 px-4 py-3 text-error-red">
@@ -167,8 +169,6 @@ export default function PacksPage() {
         {opening && revealed && (
           <PackReveal
             cards={opening.cards.map((card) => ({ key: card.tokenId, card: toRevealedCard(card) }))}
-            price={opening.price}
-            balanceAfter={opening.balanceAfter}
             onOpenAnother={openAnother}
           />
         )}

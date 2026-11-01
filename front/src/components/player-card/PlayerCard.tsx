@@ -5,7 +5,6 @@ import './PlayerCard.css';
 const LABELS = {
   scarcity: 'Token scarcity',
   price: 'Current price',
-  minted: 'Minted',
   club: 'Club',
   ovr: 'OVR',
   footer: 'MFT collectible',
@@ -144,12 +143,8 @@ export function PlayerCard({
             <div className="pc__scarcity">
               <h3 className="pc__label">{LABELS.scarcity}</h3>
               <span className="pc__rarity">
-                {LABELS.rarity[token.rarity]}
-                {token.serial != null && ` ${token.serial}/${token.supply}`}
+                {LABELS.rarity[token.rarity]} {token.serial}/{token.supply}
               </span>
-              <p className="pc__minted">
-                {LABELS.minted}: {token.minted}/{token.supply}
-              </p>
               {price.history.length > 1 && <Sparkline data={price.history} />}
             </div>
 

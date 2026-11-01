@@ -48,12 +48,14 @@ const RARITY_LABEL: Record<string, string> = {
   legendary: 'Legendaria',
 };
 
+const DETAIL_STYLE = 'text-sm md:text-right';
+
 const credits = (value: number) => `${value.toLocaleString('es-AR')} créditos`;
 
 function Detail({ entry }: { entry: OperationEntry }) {
   if (entry.kind === 'sobre') {
     return (
-      <div className="text-right text-sm">
+      <div className={DETAIL_STYLE}>
         <p className="font-semibold text-neon-blue">Primer propietario</p>
         {entry.packType && <p className="text-xs text-slate-400">Sobre {PACK_LABEL[entry.packType]}</p>}
       </div>
@@ -61,7 +63,7 @@ function Detail({ entry }: { entry: OperationEntry }) {
   }
 
   return (
-    <div className="text-right text-sm">
+    <div className={DETAIL_STYLE}>
       <p className="font-semibold text-slate-100">
         {entry.kind === 'compra' ? 'Pagaste' : 'Recibiste'} {entry.price !== null ? credits(entry.price) : '—'}
       </p>
@@ -84,7 +86,9 @@ function Detail({ entry }: { entry: OperationEntry }) {
 
 function Entry({ entry, onViewPlayer }: { entry: OperationEntry; onViewPlayer?: (entry: OperationEntry) => void }) {
   return (
-    <li className={`flex flex-wrap items-center justify-between gap-3 rounded border-l-4 bg-navy-card/60 p-3 ${KIND_STYLE[entry.kind]}`}>
+    // Columnas fijas: el detalle y el botón quedan alineados entre entradas, sea cual sea el largo
+    // del nombre o del club.
+    <li className={`grid items-center gap-3 rounded border-l-4 bg-navy-card/60 p-3 md:grid-cols-[minmax(0,1fr)_22rem_6.5rem] ${KIND_STYLE[entry.kind]}`}>
       <div className="min-w-0">
         <p className="text-xs uppercase tracking-wide">{KIND_LABEL[entry.kind]}</p>
         <p className="title-display truncate text-slate-100">{entry.player.name}</p>
@@ -98,7 +102,7 @@ function Entry({ entry, onViewPlayer }: { entry: OperationEntry; onViewPlayer?: 
         <button
           type="button"
           onClick={() => onViewPlayer(entry)}
-          className="bevel bg-navy-card px-3 py-1 text-xs text-slate-200"
+          className="bevel justify-self-start bg-navy-card px-3 py-1 text-xs text-slate-200 md:justify-self-end"
           aria-label={`Ver evolución de ${entry.player.name}`}
         >
           Ver evolución

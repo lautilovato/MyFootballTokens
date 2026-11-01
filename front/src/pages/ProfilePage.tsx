@@ -59,7 +59,7 @@ export default function ProfilePage() {
     <main className="min-h-screen bg-navy-deep text-slate-200">
       <AppHeader username={user?.username} balance={balance} onLogout={logout} isAdmin={user?.role === 'admin'} />
 
-      <div className="mx-auto max-w-4xl p-6">
+      <div className="mx-auto max-w-6xl p-6">
         <header className="mb-8">
           <h1 className="title-display text-3xl text-slate-100">Mi perfil</h1>
           <dl className="mt-3 flex flex-wrap gap-x-8 gap-y-1 text-sm">

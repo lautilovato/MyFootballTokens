@@ -48,7 +48,7 @@ const ProfileIcon = (
 
 /**
  * Menú principal (12-menu-principal): la entrada a la aplicación, con sus cuatro secciones en
- * mosaico, al estilo del menú de FIFA. Ranking todavía no tiene pantalla (FR-005).
+ * mosaico, al estilo del menú de FIFA.
  */
 export default function HomePage() {
   const { user, logout } = useAuth();
@@ -58,8 +58,8 @@ export default function HomePage() {
     <main className="flex min-h-screen flex-col bg-navy-deep text-slate-200">
       <AppHeader username={user?.username} balance={balance} onLogout={logout} isAdmin={user?.role === 'admin'} />
 
-      <div className="mx-auto flex w-full max-w-6xl flex-1 flex-col gap-4 p-4 sm:p-6">
-        <h1 className="title-display text-2xl text-slate-100">Menú principal</h1>
+      <div className="mx-auto flex w-full max-w-6xl flex-1 flex-col gap-4 p-6">
+        <h1 className="title-display text-3xl text-slate-100">Menú principal</h1>
 
         <nav aria-label="Menú principal" className="grid flex-1 grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4 lg:grid-rows-2">
           <MenuTile
@@ -79,7 +79,7 @@ export default function HomePage() {
             accent="gold"
             className="sm:col-span-2"
           />
-          <MenuTile title="Ranking" description="Mirá cómo te ubicás entre los demás jugadores." icon={RankingIcon} accent="violet" />
+          <MenuTile to="/ranking" title="Ranking" description="Los jugadores más caros según la estrategia activa." icon={RankingIcon} accent="violet" />
           <MenuTile to="/profile" title="Mi perfil" description="Tu saldo y tu historial de operaciones." icon={ProfileIcon} accent="green" />
         </nav>
       </div>

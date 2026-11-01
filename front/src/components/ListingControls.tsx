@@ -5,6 +5,8 @@ interface ListingControlsProps {
   price: number;
   /** Bloquea los botones mientras hay una operación en curso. */
   disabled: boolean;
+  /** Va en el panel de detalle: dice «Vender» y se ve como el «Comprar» del Market. */
+  inPanel?: boolean;
   onPublish: () => void;
   onWithdraw: () => void;
 }
@@ -13,7 +15,7 @@ interface ListingControlsProps {
  * Controles de venta de una carta del inventario (09-mercado FR-036): la marca «A la venta» y el
  * botón para publicarla o retirarla. Presentacional: la página confirma y llama al servicio.
  */
-export function ListingControls({ listed, price, disabled, onPublish, onWithdraw }: ListingControlsProps) {
+export function ListingControls({ listed, price, disabled, inPanel = false, onPublish, onWithdraw }: ListingControlsProps) {
   return (
     <div className="mt-2 flex items-center justify-between gap-2 text-xs">
       {listed ? (
@@ -25,9 +27,9 @@ export function ListingControls({ listed, price, disabled, onPublish, onWithdraw
         type="button"
         onClick={listed ? onWithdraw : onPublish}
         disabled={disabled}
-        className="bevel bg-navy-card px-3 py-1 text-slate-200 disabled:opacity-40"
+        className={`bevel px-3 py-1 disabled:opacity-40 ${inPanel ? 'bg-neon-blue/20 text-neon-blue' : 'bg-navy-card text-slate-200'}`}
       >
-        {listed ? 'Retirar' : 'Poner a la venta'}
+        {listed ? 'Retirar' : inPanel ? 'Vender' : 'Poner a la venta'}
       </button>
     </div>
   );

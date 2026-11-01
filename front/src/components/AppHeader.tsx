@@ -16,7 +16,7 @@ const navClass = ({ isActive }: { isActive: boolean }) =>
 
 /**
  * Encabezado de las pantallas con sesión (08-sobres FR-052, FR-053): el logo vuelve al menú
- * principal, accesos a Mercado y Sobres, saldo y usuario. Lo personal, como las cartas y las
+ * principal, accesos a Mercado, Sobres y Ranking, saldo y usuario. Lo personal, como las cartas y las
  * operaciones (10-historial-operaciones FR-001), está en el menú del usuario. Presentacional:
  * recibe el saldo, no lo pide.
  *
@@ -46,6 +46,9 @@ export function AppHeader({ username, balance, onLogout, isAdmin = false }: AppH
           </NavLink>
           <NavLink to="/packs" className={navClass}>
             Sobres
+          </NavLink>
+          <NavLink to="/ranking" className={navClass}>
+            Ranking
           </NavLink>
           {isAdmin && (
             <NavLink to="/admin" className={navClass}>
