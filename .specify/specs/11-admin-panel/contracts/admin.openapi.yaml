@@ -1,0 +1,157 @@
+openapi: 3.0.3
+info:
+  title: Panel de administración (11-admin-panel)
+  version: 1.0.0
+paths:
+  /admin/metrics:
+    get:
+      summary: Métricas agregadas de la plataforma
+      description: >
+        Solo lectura. Requiere sesión de una cuenta con rol de administrador, verificado en cada
+        pedido. La clave administrativa no habilita este endpoint.
+      security:
+        - bearer: []
+      parameters:
+        - { name: from, in: query, schema: { type: string, format: date }, description: 'Junto con to. Sin ninguno de los dos, «Todo».' }
+        - { name: to, in: query, schema: { type: string, format: date } }
+        - { name: timezone, in: query, schema: { type: string, default: UTC }, description: Nombre IANA }
+        - { name: refresh, in: query, schema: { type: string, enum: ['true'] }, description: Saltea la caché }
+      responses:
+        '200':
+          description: Métricas
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AdminMetrics' }
+        '401':
+          description: UNAUTHENTICATED
+          content: { application/json: { schema: { $ref: '#/components/schemas/ApiError' } } }
+        '403':
+          description: FORBIDDEN — sesión válida sin el rol
+          content: { application/json: { schema: { $ref: '#/components/schemas/ApiError' } } }
+        '422':
+          description: VALIDATION_ERROR — período inválido
+          content: { application/json: { schema: { $ref: '#/components/schemas/ApiError' } } }
+        '500':
+          description: INTERNAL_ERROR
+          content: { application/json: { schema: { $ref: '#/components/schemas/ApiError' } } }
+components:
+  securitySchemes:
+    bearer: { type: http, scheme: bearer, bearerFormat: JWT }
+  schemas:
+    ApiError:
+      type: object
+      required: [code, message, correlationId]
+      properties:
+        code: { type: string }
+        message: { type: string }
+        correlationId: { type: string }
+        details: { type: array, items: { type: string } }
+    AdminMetrics:
+      type: object
+      required: [computedAt, period, users, cards, rarity, packs, market, credits, activity, reconciliation]
+      properties:
+        computedAt: { type: string, format: date-time }
+        period:
+          type: object
+          properties:
+            from: { type: string, format: date, nullable: true }
+            to: { type: string, format: date, nullable: true }
+            timezone: { type: string }
+        users:
+          type: object
+          properties:
+            registered: { type: integer, description: Estado }
+            new: { type: integer, description: Período }
+            active: { type: integer, description: Período }
+        cards:
+          type: object
+          description: Estado
+          properties:
+            issued: { type: integer }
+            inCirculation: { type: integer }
+            inPacks: { type: integer }
+            reserved: { type: integer }
+            platformSale: { type: integer }
+            listed: { type: integer }
+        rarity:
+          type: object
+          description: Cartas en circulación por rareza vigente. Estado.
+          properties:
+            common: { type: integer }
+            rare: { type: integer }
+            epic: { type: integer }
+            legendary: { type: integer }
+        packs:
+          type: object
+          properties:
+            remaining: { type: integer, description: Estado }
+            opened: { type: integer, description: Período }
+            byType:
+              type: array
+              items:
+                type: object
+                properties:
+                  type: { type: string, enum: [common, rare, epic, legendary] }
+                  remaining: { type: integer }
+                  opened: { type: integer }
+                  soldOut: { type: boolean }
+        market:
+          type: object
+          description: Período
+          properties:
+            sales: { type: integer }
+            averagePrice: { type: integer, nullable: true }
+            volume: { type: integer }
+            topSale:
+              type: object
+              nullable: true
+              properties:
+                price: { type: integer }
+                playerId: { type: string, format: uuid }
+                playerName: { type: string }
+                at: { type: string, format: date-time }
+            topPlayers:
+              type: array
+              maxItems: 5
+              items:
+                type: object
+                properties:
+                  playerId: { type: string, format: uuid }
+                  playerName: { type: string }
+                  sales: { type: integer }
+                  volume: { type: integer }
+        credits:
+          type: object
+          properties:
+            issued: { type: integer, description: Período }
+            collected: { type: integer, description: Período }
+            inCirculation: { type: integer, description: Estado }
+        activity:
+          type: object
+          properties:
+            unit: { type: string, enum: [day, week, month] }
+            buckets:
+              type: array
+              items:
+                type: object
+                properties:
+                  start: { type: string, format: date }
+                  packsOpened: { type: integer }
+                  sales: { type: integer }
+        reconciliation:
+          type: object
+          description: Sobre toda la historia, sin importar el período.
+          properties:
+            cards:
+              type: object
+              properties:
+                ok: { type: boolean }
+                difference: { type: integer }
+                affectedPlayers: { type: integer }
+            credits:
+              type: object
+              properties:
+                ok: { type: boolean }
+                expected: { type: integer }
+                actual: { type: integer }
+                difference: { type: integer }

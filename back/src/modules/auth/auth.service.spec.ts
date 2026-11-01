@@ -77,7 +77,7 @@ describe('AuthService', () => {
       });
 
       expect(JSON.stringify(res)).not.toContain('$2b$');
-      expect(Object.keys(res.user)).toEqual(['id', 'email', 'username']);
+      expect(Object.keys(res.user)).toEqual(['id', 'email', 'username', 'role']);
     });
 
     it('rechaza un email ya registrado (FR-005)', async () => {

@@ -19,7 +19,8 @@
     "test:cov": "node --experimental-vm-modules node_modules/jest/bin/jest.js --coverage",
     "test:debug": "node --inspect-brk --experimental-vm-modules -r tsconfig-paths/register node_modules/.bin/jest --runInBand",
     "test:e2e": "node --experimental-vm-modules node_modules/jest/bin/jest.js --config ./test/jest-e2e.json --forceExit",
-    "migration:up": "mikro-orm migration:up"
+    "migration:up": "mikro-orm migration:up",
+    "seed:admin": "tsx src/infrastructure/database/seeds/run-admin-seed.ts"
   },
   "dependencies": {
     "@keyv/redis": "^5.1.6",

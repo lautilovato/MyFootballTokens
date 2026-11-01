@@ -1,6 +1,9 @@
+import { lazy, Suspense } from 'react';
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom';
+import { AdminRoute } from '../components/AdminRoute';
 import { ProtectedRoute } from '../components/ProtectedRoute';
 import HomePage from '../pages/HomePage';
+import MarketPage from '../pages/MarketPage';
 import InventoryPage from '../pages/InventoryPage';
 import LoginPage from '../pages/LoginPage';
 import PacksPage from '../pages/PacksPage';
@@ -8,6 +11,9 @@ import ProfilePage from '../pages/ProfilePage';
 import RegisterPage from '../pages/RegisterPage';
 import { AuthProvider } from '../services/AuthProvider';
 import { CreditsProvider } from './CreditsProvider';
+
+/** Aparte del resto: los gráficos pesan y solo los usa quien entra al panel. */
+const AdminPage = lazy(() => import('../pages/AdminPage'));
 
 /**
  * Arranque, providers y rutas publicas vs protegidas.
@@ -28,6 +34,15 @@ export default function App() {
               element={
                 <ProtectedRoute>
                   <HomePage />
+                </ProtectedRoute>
+              }
+            />
+            {/* 12-menu-principal FR-002: el mercado deja de ser la entrada. */}
+            <Route
+              path="/market"
+              element={
+                <ProtectedRoute>
+                  <MarketPage />
                 </ProtectedRoute>
               }
             />
@@ -55,6 +70,17 @@ export default function App() {
                 <ProtectedRoute>
                   <ProfilePage />
                 </ProtectedRoute>
+              }
+            />
+            {/* 11-admin-panel FR-013: solo cuentas administradoras. */}
+            <Route
+              path="/admin"
+              element={
+                <AdminRoute>
+                  <Suspense fallback={null}>
+                    <AdminPage />
+                  </Suspense>
+                </AdminRoute>
               }
             />
             <Route path="*" element={<Navigate to="/" replace />} />
