@@ -22,13 +22,15 @@ export interface ApiErrorBody {
 const LOG_CONTEXT = 'ApiErrorFilter';
 
 /**
- * Traduce cualquier excepción al formato `{ code, message, correlationId }` (research #10).
+ * Traduce cualquier excepción al formato `{ code, message, correlationId }` (08 research #10).
  *
- * Se aplica con `@UseFilters` solo a los controladores de `credits`, `tokens` y `packs`: los
- * contratos de 05 a 07 ya publicaron el formato por defecto de Nest y un filtro global los
+ * Se aplica con `@UseFilters` solo a los controladores de `credits`, `tokens`, `packs` y `market`:
+ * los contratos de 05 a 07 ya publicaron el formato por defecto de Nest y un filtro global los
  * rompería.
  *
  * - 401 → `UNAUTHENTICATED` (FR-047).
+ * - 429 del límite de frecuencia (`ThrottlerException`) → `RATE_LIMITED` (09 research #11). Se
+ *   reconoce por el status para no importar `@nestjs/throttler` acá.
  * - 400 sin código (ValidationPipe, ParseUUIDPipe) → 422 `VALIDATION_ERROR` (FR-048).
  * - Excepciones de dominio con `code` en el body → su status y su código.
  * - Cualquier otra → 500 `INTERNAL_ERROR`, sin detalle interno.
@@ -58,6 +60,13 @@ export class ApiErrorFilter implements ExceptionFilter {
       return {
         status: HttpStatus.UNAUTHORIZED,
         body: { code: 'UNAUTHENTICATED', message: 'Se necesita una sesión válida' },
+      };
+    }
+
+    if (exception instanceof HttpException && exception.getStatus() === HttpStatus.TOO_MANY_REQUESTS) {
+      return {
+        status: HttpStatus.TOO_MANY_REQUESTS,
+        body: { code: 'RATE_LIMITED', message: 'Demasiados pedidos; probá de nuevo en un momento' },
       };
     }
 

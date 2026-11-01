@@ -1,10 +1,19 @@
 import type { ApiPlayerDetail } from '../services/players.service';
+import { MarketListings, type MarketListingsProps } from './MarketListings';
 
 interface PlayerDetailPanelProps {
   player: ApiPlayerDetail | null;
   loading: boolean;
   error: string | null;
   onClose: () => void;
+  /** Cartas a la venta del jugador y la compra (09-mercado FR-038); nulo para no mostrar el bloque. */
+  market?: MarketListingsProps | null;
+  /**
+   * Gráfico completo de cotizaciones (10-historial-operaciones FR-019, FR-020): `onOpen` abre el
+   * modal y `quoteLabel` es la estrategia de la cotización vigente («Performance v2»), nula si
+   * todavía no se conoce.
+   */
+  priceHistoryView?: { quoteLabel: string | null; onOpen: () => void } | null;
 }
 
 /**
@@ -68,14 +77,13 @@ function historySummary(history: number[]): string {
 }
 
 /**
- * Panel lateral de detalle (US3).
+ * Panel lateral de detalle (06-home US3).
  *
- * La gráfica sale de las cotizaciones reales del jugador (07-cotizacion). Lo único que sigue
- * siendo MAQUETA es el bloque de compra (FR-032, FR-033): no existe módulo de billetera. El
- * selector y el botón van deshabilitados y sin ningún manejador — ninguna interacción puede
- * emitir una petición de compra.
+ * La gráfica sale de las cotizaciones reales del jugador (07-cotizacion). El bloque de compra
+ * (09-mercado FR-038, que reemplaza la maqueta de 06 FR-032 y FR-033) es `MarketListings`: la
+ * página le pasa las cartas a la venta y decide qué hacer al comprar.
  */
-export function PlayerDetailPanel({ player, loading, error, onClose }: PlayerDetailPanelProps) {
+export function PlayerDetailPanel({ player, loading, error, onClose, market, priceHistoryView }: PlayerDetailPanelProps) {
   return (
     // Siempre a la vista, sin importar hasta dónde se scrolleó la grilla: en desktop queda
     // fijo (sticky) en su columna; en mobile, donde la columna quedaría debajo de toda la
@@ -132,20 +140,33 @@ export function PlayerDetailPanel({ player, loading, error, onClose }: PlayerDet
           <section className="mb-5 rounded border border-white/10 p-3" aria-label="Historial de cotizaciones">
             <div className="mb-1 flex items-baseline justify-between">
               <h3 className="title-display text-xs text-slate-300">Price History</h3>
-              {player.priceHistory.length >= 2 && (
-                <span className={player.changePct >= 0 ? 'text-xs text-neon-green' : 'text-xs text-error-red'}>
-                  {player.changePct > 0 ? '+' : ''}
-                  {player.changePct.toFixed(1)}%
-                </span>
-              )}
+              <span className="flex items-baseline gap-3">
+                {player.priceHistory.length >= 2 && (
+                  <span className={player.changePct >= 0 ? 'text-xs text-neon-green' : 'text-xs text-error-red'}>
+                    {player.changePct > 0 ? '+' : ''}
+                    {player.changePct.toFixed(1)}%
+                  </span>
+                )}
+                {/* Con al menos una cotización hay algo que ver en el gráfico completo (FR-019). */}
+                {priceHistoryView && player.priceHistory.length >= 1 && (
+                  <button
+                    type="button"
+                    onClick={priceHistoryView.onOpen}
+                    className="text-xs text-neon-blue underline-offset-2 hover:underline"
+                  >
+                    Ver más
+                  </button>
+                )}
+              </span>
             </div>
             <div className={player.changePct >= 0 ? 'text-neon-green' : 'text-error-red'}>
               <PriceChart history={player.priceHistory} />
             </div>
             <p className="mt-1 text-xs text-slate-500">{historySummary(player.priceHistory)}</p>
+            {priceHistoryView?.quoteLabel && player.priceHistory.length >= 1 && (
+              <p className="text-xs text-slate-400">Cotizado con {priceHistoryView.quoteLabel}</p>
+            )}
           </section>
-
-          {/* ---- Desde acá es maqueta: la compra no está habilitada ---- */}
 
           <dl className="mb-5 space-y-1 text-sm">
             <div className="flex justify-between">
@@ -160,33 +181,8 @@ export function PlayerDetailPanel({ player, loading, error, onClose }: PlayerDet
             </div>
           </dl>
 
-          <section className="rounded border border-dashed border-white/20 p-3" aria-label="Compra de tokens">
-            <div className="mb-2 flex items-baseline justify-between">
-              <h3 className="title-display text-xs text-slate-300">Buy</h3>
-              <span className="text-[10px] uppercase tracking-wide text-gold">No disponible</span>
-            </div>
-            <label className="mb-2 block text-xs text-slate-400">
-              Amount (tokens)
-              <input
-                type="number"
-                value={1}
-                disabled
-                readOnly
-                aria-label="Cantidad de tokens"
-                className="bevel mt-1 w-full cursor-not-allowed bg-navy px-2 py-1 text-slate-500"
-              />
-            </label>
-            <button
-              type="button"
-              disabled
-              className="bevel w-full cursor-not-allowed bg-navy px-4 py-2 text-sm text-slate-500"
-            >
-              Buy token (1)
-            </button>
-            <p className="mt-2 text-xs text-slate-500">
-              La compra de tokens todavía no está habilitada.
-            </p>
-          </section>
+          {/* 09-mercado FR-038: el bloque de compra lista las cartas a la venta. */}
+          {market && <MarketListings {...market} />}
         </>
       )}
     </aside>

@@ -3,8 +3,8 @@ import { Entity, Enum, PrimaryKey, Property, ManyToOne } from '@mikro-orm/decora
 import { Token, TokenStatus } from './token.entity';
 
 /**
- * Tipos de esta feature (08-sobres FR-030). `devolucion_a_plataforma` y `puesta_en_venta` están
- * definidos pero ningún flujo los produce todavía (research #15).
+ * Tipos de evento (08-sobres FR-030, 09-mercado FR-023). `devolucion_a_plataforma` está definido
+ * pero ningún flujo lo produce todavía (08 research #15).
  */
 export enum TokenEventType {
   EMISSION = 'emision',
@@ -12,6 +12,8 @@ export enum TokenEventType {
   PACK_DELIVERY = 'entrega_en_sobre',
   RETURN_TO_PLATFORM = 'devolucion_a_plataforma',
   PUT_ON_SALE = 'puesta_en_venta',
+  SALE_WITHDRAWAL = 'retiro_de_venta',
+  SALE = 'venta',
 }
 
 /**
@@ -50,7 +52,7 @@ export class TokenEvent {
   @Property({ type: 'string', nullable: true })
   rarity?: string | null;
 
-  /** `'pack_batch'` o `'pack_opening'` (FR-041). */
+  /** `'pack_batch'`, `'pack_opening'`, `'listing'` o `'token_purchase'` (FR-041). */
   @Property({ type: 'string', nullable: true })
   referenceType?: string | null;
 

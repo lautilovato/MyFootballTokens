@@ -7,6 +7,14 @@ export class InventoryTokenDto {
 
   @ApiProperty({ minimum: 1, maximum: 100 })
   serial!: number;
+
+  @ApiProperty({
+    type: String,
+    format: 'uuid',
+    nullable: true,
+    description: 'Publicación activa del token; nulo si no está a la venta (09-mercado FR-025)',
+  })
+  listingId!: string | null;
 }
 
 export class InventoryItemDto {

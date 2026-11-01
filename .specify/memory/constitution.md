@@ -1,5 +1,38 @@
 <!--
 SYNC IMPACT REPORT
+Version change: 4.0.0 -> 4.1.0
+Rationale: MINOR bump - ampliacion material de la seccion 5 con la regla nueva "Mercado", que
+fija como se traduce la cotizacion del jugador al precio de un token, algo que 4.0.0 dejaba
+abierto a la spec de venta. No se elimina ni redefine nada de forma incompatible: la cotizacion
+sigue calculandose por jugador. Disparado por /speckit-constitution al revisar la spec
+09-mercado (revision 3, 2026-10-20), cuyas clarificaciones deciden que el precio lo da el score:
+cada token vale la cotizacion vigente completa de su jugador (sin dividirla por 100) y ningun
+usuario fija ni negocia precios.
+Modified principles:
+  - 5. Reglas de Dominio de Negocio - nueva regla "Mercado": el precio de un token es la
+    cotizacion vigente de su jugador, completa; rige en el instante de cada compra/venta; nadie
+    MAY fijarlo ni negociarlo; en una venta entre usuarios los creditos pasan del comprador al
+    vendedor y lo pagado por un token de la plataforma sale de circulacion. Las reglas
+    operativas (forma de compra, comisiones) quedan en la spec del mercado.
+  - 5. "Cotizacion": la aclaracion "(no del token)" pasa a "(se calcula por jugador, no por
+    token)", porque ahora el token si tiene un precio derivado de ella.
+  - 5. "Tokens": la venta de tokens devueltos a la plataforma se hace a su precio de mercado.
+  - 5. "Creditos": lo cobrado por la plataforma incluye la venta de tokens en su poder.
+Added sections: none (se agrega la regla "Mercado" dentro de §5)
+Removed sections: none
+Deferred placeholders / TODOs: none
+Impact on dependent artifacts:
+  - 09-mercado/spec.md: ya cumple (FR-001, FR-002, FR-018, FR-019). Su linea "Depende de" cita
+    la constitucion v4.0.0; debe pasar a citar v4.1.0 (fuera del alcance de este comando).
+  - 07-cotizacion/spec.md (linea 246) y 08-sobres/spec.md (Assumptions, "Valor de referencia
+    del token") proponen 1/100 de la cotizacion por token: quedan superadas por esta version y
+    por la spec 09. Por convencion del proyecto no se editan; la spec 09 lo deja asentado.
+  - 08-sobres FR-043 (tokens devueltos "al valor vigente del token segun la spec de venta"): ya
+    es consistente.
+  - front/package.json: ya declara `gsap` y `@gsap/react`; el pendiente de 3.3.0 queda resuelto.
+  - Templates: none checked by this command (see Scope Guard).
+
+PREVIOUS AMENDMENT (4.0.0)
 Version change: 3.3.0 -> 4.0.0
 Rationale: MAJOR bump - redefinicion incompatible de la regla "Tokens" de la seccion 5: se
 elimina la figura del superusuario. Disparado por /speckit-constitution al detectar que la spec
@@ -242,10 +275,11 @@ Cada vez que la IA genere código, debe contemplar por defecto los siguientes re
     *   Se debe realizar un manejo seguro de los tokens de autenticación y autorización.
 
 ## 5. Reglas de Dominio de Negocio
-*   **Tokens:** Existen exactamente 100 tokens por jugador; esa cantidad es fija y ningún proceso emite tokens de más ni los destruye. Al emitirse, los tokens no tienen dueño de usuario: pertenecen a la **plataforma**, que no es un usuario (no tiene credenciales, saldo ni inventario). No existe un superusuario. Ningún token está a la venta de entrada: los usuarios los obtienen abriendo sobres, y el mercado arranca vacío, formado únicamente por los tokens que salieron en sobres. Un token en poder de la plataforma MUST NOT comprarse ni venderse, con una única excepción: un token que vuelve a la plataforma desde un usuario (por ejemplo, por la eliminación de su cuenta) MAY ser puesto a la venta por la plataforma según lo defina la spec del mercado, y MUST NOT volver a los sobres.
-*   **Créditos:** Los usuarios reciben al registrarse una cantidad inicial de créditos, que usan para abrir sobres y operar. Los créditos son números enteros y el saldo de un usuario MUST NOT ser negativo. La entrega inicial es una **emisión** de créditos; lo que la plataforma cobra (por ejemplo, al abrir un sobre) es ingreso de la plataforma, sale de circulación y no se acredita a ninguna cuenta.
+*   **Tokens:** Existen exactamente 100 tokens por jugador; esa cantidad es fija y ningún proceso emite tokens de más ni los destruye. Al emitirse, los tokens no tienen dueño de usuario: pertenecen a la **plataforma**, que no es un usuario (no tiene credenciales, saldo ni inventario). No existe un superusuario. Ningún token está a la venta de entrada: los usuarios los obtienen abriendo sobres, y el mercado arranca vacío, formado únicamente por los tokens que salieron en sobres. Un token en poder de la plataforma MUST NOT comprarse ni venderse, con una única excepción: un token que vuelve a la plataforma desde un usuario (por ejemplo, por la eliminación de su cuenta) MAY ser puesto a la venta por la plataforma a su precio de mercado (ver «Mercado»), y MUST NOT volver a los sobres.
+*   **Créditos:** Los usuarios reciben al registrarse una cantidad inicial de créditos, que usan para abrir sobres y operar. Los créditos son números enteros y el saldo de un usuario MUST NOT ser negativo. La entrega inicial es una **emisión** de créditos; lo que la plataforma cobra (por ejemplo, al abrir un sobre o al vender un token en su poder) es ingreso de la plataforma, sale de circulación y no se acredita a ninguna cuenta.
 *   **Precio y momento cero:** No existe un valor fijo por token ni un precio inicial por defecto. El precio de un jugador lo determina el cálculo de su score. El «momento cero» de un token es el instante en que sale de un sobre, y se valúa con la cotización vigente del jugador en ese instante. Un jugador sin cálculo no tiene cotización y MUST NOT recibir un precio por defecto.
-*   **Cotización:** Es el precio del **jugador** (no del token) en créditos enteros, derivado exclusivamente de un **score** no negativo y **sin tope superior** (la escala de referencia va de 0 a 1, pero un jugador que supera la referencia alta puntúa por encima de 1 y su precio no tiene máximo), calculado como suma ponderada de métricas normalizadas. El modelo de valuación MUST admitir estrategias configurables y versionadas, basadas en métricas de performance con ponderaciones variables —positivas o negativas— y diferenciables por posición, e incluir métricas de contexto como la reputación mundial del jugador. El sistema MUST dejar traza, en cada cotización periódica, de la estrategia y versión utilizadas, del score y de su desglose por métrica.
+*   **Cotización:** Es el precio del **jugador** (se calcula por jugador, no por token) en créditos enteros, derivado exclusivamente de un **score** no negativo y **sin tope superior** (la escala de referencia va de 0 a 1, pero un jugador que supera la referencia alta puntúa por encima de 1 y su precio no tiene máximo), calculado como suma ponderada de métricas normalizadas. El modelo de valuación MUST admitir estrategias configurables y versionadas, basadas en métricas de performance con ponderaciones variables —positivas o negativas— y diferenciables por posición, e incluir métricas de contexto como la reputación mundial del jugador. El sistema MUST dejar traza, en cada cotización periódica, de la estrategia y versión utilizadas, del score y de su desglose por métrica.
+*   **Mercado:** El precio lo da el score. Cada token de un jugador vale exactamente la **cotización vigente** de ese jugador, completa: no se divide entre sus tokens ni se redondea, y cambia con cada recálculo. Toda compra o venta de un token MUST hacerse a la cotización vigente en el instante de la operación; ningún usuario ni la plataforma MAY fijar, cambiar ni negociar ese precio. En una venta entre usuarios, los créditos pasan del comprador al vendedor sin crearse; lo que se paga por un token en poder de la plataforma es ingreso de la plataforma y sale de circulación. Las reglas operativas del mercado (cómo se publica y se compra, comisiones) las define su spec.
 
 ## 6. Reglas de Comportamiento de la IA (Claude)
 *   Documentar todos los endpoints generados utilizando decoradores de `@nestjs/swagger`.
@@ -327,4 +361,4 @@ datos que el backend expone en sus respuestas.
 *   Toda revisión de código (Pull Request) debe verificar el cumplimiento de esta constitución antes de ser aprobada.
 *   Cualquier excepción o complejidad que se aparte de estas reglas debe justificarse explícitamente en la spec o plan correspondiente.
 
-**Versión**: 4.0.0 | **Ratificada**: 2026-08-29 | **Última Enmienda**: 2026-10-13
+**Versión**: 4.1.0 | **Ratificada**: 2026-08-29 | **Última Enmienda**: 2026-10-20

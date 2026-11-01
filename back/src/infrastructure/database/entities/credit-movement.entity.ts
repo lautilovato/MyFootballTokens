@@ -2,10 +2,15 @@ import { randomUUID } from 'node:crypto';
 import { Entity, Enum, PrimaryKey, Property, ManyToOne } from '@mikro-orm/decorators/legacy';
 import { User } from './user.entity';
 
-/** Tipos de esta feature (08-sobres FR-006). Agregar uno es ampliar el CHECK, sin tocar filas. */
+/**
+ * Tipos de movimiento (08-sobres FR-006, 09-mercado FR-020). Agregar uno es ampliar el CHECK,
+ * sin tocar filas.
+ */
 export enum CreditMovementType {
   INITIAL_GRANT = 'entrega_inicial',
   PACK_PURCHASE = 'compra_sobre',
+  TOKEN_PURCHASE = 'compra_token',
+  TOKEN_SALE = 'venta_token',
 }
 
 /**
@@ -32,7 +37,7 @@ export class CreditMovement {
   @Property({ type: 'integer' })
   balanceAfter!: number;
 
-  /** `'pack_opening'` para una compra; nulo para la entrega inicial (FR-041). */
+  /** `'pack_opening'` o `'token_purchase'`; nulo para la entrega inicial (FR-041). */
   @Property({ type: 'string', nullable: true })
   referenceType?: string | null;
 

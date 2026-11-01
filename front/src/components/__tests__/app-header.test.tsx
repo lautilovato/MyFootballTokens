@@ -38,6 +38,12 @@ describe('AppHeader', () => {
     expect(links).toContainEqual(['Mis cartas', '/inventory']);
   });
 
+  it('muestra el acceso a Mi perfil (10-historial-operaciones FR-001)', () => {
+    render(2000);
+    const links = [...container.querySelectorAll('a')].map((a) => [a.textContent, a.getAttribute('href')]);
+    expect(links).toContainEqual(['Mi perfil', '/profile']);
+  });
+
   it('muestra el saldo y el usuario', () => {
     render(1800);
     expect(container.querySelector('[aria-label="Saldo"]')?.textContent).toBe('1.800 créditos');

@@ -4,6 +4,7 @@ import HomePage from '../pages/HomePage';
 import InventoryPage from '../pages/InventoryPage';
 import LoginPage from '../pages/LoginPage';
 import PacksPage from '../pages/PacksPage';
+import ProfilePage from '../pages/ProfilePage';
 import RegisterPage from '../pages/RegisterPage';
 import { AuthProvider } from '../services/AuthProvider';
 import { CreditsProvider } from './CreditsProvider';
@@ -44,6 +45,15 @@ export default function App() {
               element={
                 <ProtectedRoute>
                   <InventoryPage />
+                </ProtectedRoute>
+              }
+            />
+            {/* 10-historial-operaciones FR-001: solo con sesion. */}
+            <Route
+              path="/profile"
+              element={
+                <ProtectedRoute>
+                  <ProfilePage />
                 </ProtectedRoute>
               }
             />

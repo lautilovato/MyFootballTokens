@@ -43,6 +43,11 @@ export async function cleanAll(em: EntityManager): Promise<void> {
   await em.nativeDelete(PlayerSeasonStats, {});
   await em.nativeDelete(PlayerQuote, {});
   await em.nativeDelete(QuoteRun, {});
+  // Estrategias que sembró `seedQuote` (quote-fixtures.ts); las de 07 no se tocan.
+  await em.execute(
+    `delete from "valuation_strategy_version" where "strategy_id" in (select "id" from "valuation_strategy" where "key" like 'e2e-%')`,
+  );
+  await em.execute(`delete from "valuation_strategy" where "key" like 'e2e-%'`);
   await em.nativeDelete(Player, {});
   await em.nativeDelete(Team, {});
   await em.nativeDelete(League, {});

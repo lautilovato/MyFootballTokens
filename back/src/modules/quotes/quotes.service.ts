@@ -20,6 +20,8 @@ import { ValuationStrategyService } from '../valuation-strategy/valuation-strate
 import { BulkReputationDto } from './dto/bulk-reputation.dto';
 import { BulkReputationResultDto, ReputationResponseDto } from './dto/bulk-reputation-result.dto';
 import { CurrentQuoteResponseDto, QuoteDto } from './dto/current-quote-response.dto';
+import { QuoteAtQueryDto } from './dto/quote-at-query.dto';
+import { QuoteAtResponseDto } from './dto/quote-at-response.dto';
 import { QuoteHistoryQueryDto } from './dto/quote-history-query.dto';
 import { PageMetaDto } from './dto/page-meta.dto';
 import { QuoteHistoryResponseDto } from './dto/quote-history-response.dto';
@@ -44,6 +46,13 @@ import { QuotesRepository } from './quotes.repository';
 import { calculateQuotes } from './score-calculator';
 
 const LOG_CONTEXT = 'QuotesService';
+
+/**
+ * Margen del instante consultado hacia el futuro (10-historial-operaciones FR-031, research #4): el
+ * final de «hoy» en la zona horaria del usuario puede estar hasta 24 horas por delante del reloj
+ * del servidor, y ese pedido es legítimo. Más allá de eso, la fecha es futura y se rechaza.
+ */
+const MAX_FUTURE_MS = 24 * 60 * 60 * 1000;
 
 /**
  * Contador que versiona el espacio de claves de la cotización actual (research #11). Cada
@@ -232,6 +241,27 @@ export class QuotesService implements OnModuleInit, OnApplicationBootstrap {
 
     this.logger.event(LOG_CONTEXT, 'current quote queried', { playerId, quoted: result.quoted });
     return result;
+  }
+
+  /**
+   * Cotización vigente en un instante: la última calculada hasta él, inclusive (10-historial-operaciones
+   * FR-028 a FR-030). Siempre es una cotización existente, nunca una interpolada. Un jugador sin
+   * cotización hasta ese instante no es un error: se informa `quoted=false` y cuándo se calculó la
+   * primera (07 FR-018). Es de solo lectura y no se cachea: debe ver un recálculo apenas termina.
+   */
+  async getAt(playerId: string, query: QuoteAtQueryDto): Promise<QuoteAtResponseDto> {
+    const at = new Date(query.at);
+    if (at.getTime() > Date.now() + MAX_FUTURE_MS) {
+      throw new BadRequestException('at must not be in the future');
+    }
+
+    if (!(await this.quotesRepository.playerExists(playerId))) {
+      throw new NotFoundException({ code: 'PLAYER_NOT_FOUND', message: 'El jugador no existe' });
+    }
+
+    const quote = await this.quotesRepository.findAt(playerId, at);
+    const firstQuotedAt = quote ? null : await this.quotesRepository.findFirstCalculatedAt(playerId);
+    return QuoteAtResponseDto.from(playerId, query.at, quote, firstQuotedAt);
   }
 
   async getHistory(playerId: string, query: QuoteHistoryQueryDto): Promise<QuoteHistoryResponseDto> {

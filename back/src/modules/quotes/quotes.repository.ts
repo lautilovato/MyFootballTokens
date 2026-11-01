@@ -219,6 +219,24 @@ export class QuotesRepository {
     );
   }
 
+  /**
+   * La última cotización calculada hasta `at`, inclusive (10-historial-operaciones FR-028).
+   * Usa el índice `player_id, calculated_at desc`.
+   */
+  async findAt(playerId: string, at: Date): Promise<PlayerQuote | null> {
+    return this.em.fork().findOne(
+      PlayerQuote,
+      { player: playerId, calculatedAt: { $lte: at } },
+      { orderBy: { calculatedAt: 'desc' }, populate: ['strategyVersion.strategy'] },
+    );
+  }
+
+  /** Cuándo se calculó la primera cotización del jugador; nulo si nunca fue cotizado. */
+  async findFirstCalculatedAt(playerId: string): Promise<Date | null> {
+    const first = await this.em.fork().findOne(PlayerQuote, { player: playerId }, { orderBy: { calculatedAt: 'asc' } });
+    return first?.calculatedAt ?? null;
+  }
+
   /** Historial en orden cronológico ascendente, con `from`/`to` inclusivos (FR-020). */
   async findHistory(
     playerId: string,

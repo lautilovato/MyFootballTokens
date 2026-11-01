@@ -15,7 +15,7 @@ const BASE: ApiPlayerCard = {
   assists: 5,
   marketValue: 8450,
   changePct: 12.5,
-  supply: { minted: 100, total: 100 },
+  supply: { minted: 100, total: 100 }, forSaleCount: 0,
   priceHistory: Array.from({ length: 30 }, (_, i) => 8000 + i * 15),
 };
 

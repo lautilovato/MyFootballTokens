@@ -8,6 +8,7 @@ import {
   Post,
   Put,
   Query,
+  UseFilters,
   UseGuards,
 } from '@nestjs/common';
 import {
@@ -25,9 +26,12 @@ import {
   SWAGGER_API_KEY_SCHEME,
   SWAGGER_BEARER_SCHEME,
 } from '../../shared/auth/auth.constants';
+import { ApiErrorFilter } from '../../shared/http/api-error.filter';
 import { BulkReputationDto } from './dto/bulk-reputation.dto';
 import { BulkReputationResultDto, ReputationResponseDto } from './dto/bulk-reputation-result.dto';
 import { CurrentQuoteResponseDto } from './dto/current-quote-response.dto';
+import { QuoteAtQueryDto } from './dto/quote-at-query.dto';
+import { QuoteAtResponseDto } from './dto/quote-at-response.dto';
 import { QuoteHistoryQueryDto } from './dto/quote-history-query.dto';
 import { QuoteHistoryResponseDto } from './dto/quote-history-response.dto';
 import { ListRunsQueryDto } from './dto/list-runs-query.dto';
@@ -97,6 +101,32 @@ export class QuotesController {
     @Param('playerId', ParseUUIDPipe) playerId: string,
   ): Promise<CurrentQuoteResponseDto> {
     return this.quotesService.getCurrent(playerId);
+  }
+
+  // El filtro va SOLO en este método: el resto del controller conserva el formato de error por
+  // defecto de 05 a 07, que ya está publicado y testeado (10-historial-operaciones research #8).
+  @Get('players/:playerId/at')
+  @UseGuards(JwtAuthGuard)
+  @UseFilters(ApiErrorFilter)
+  @ApiBearerAuth(SWAGGER_BEARER_SCHEME)
+  @ApiOperation({
+    summary: 'Cotización vigente de un jugador en un instante, con su estrategia y versión (10-historial-operaciones FR-028)',
+    description:
+      'Devuelve la última cotización calculada hasta `at` (inclusive): siempre una cotización existente, nunca interpolada. ' +
+      'Un jugador sin cotización hasta ese instante responde 200 con quoted=false y la fecha de la primera. ' +
+      'Un `at` más de 24 horas adelante del reloj del servidor se rechaza.',
+  })
+  @ApiParam({ name: 'playerId', format: 'uuid' })
+  @ApiResponse({ status: 200, description: 'Cotización vigente en `at`, o quoted=false', type: QuoteAtResponseDto })
+  @ApiResponse({ status: 401, description: 'UNAUTHENTICATED' })
+  @ApiResponse({ status: 404, description: 'PLAYER_NOT_FOUND' })
+  @ApiResponse({ status: 422, description: 'VALIDATION_ERROR — `at` ausente, mal formado o futuro; playerId no es un UUID' })
+  @ApiResponse({ status: 500, description: 'INTERNAL_ERROR' })
+  async getAt(
+    @Param('playerId', ParseUUIDPipe) playerId: string,
+    @Query() query: QuoteAtQueryDto,
+  ): Promise<QuoteAtResponseDto> {
+    return this.quotesService.getAt(playerId, query);
   }
 
   @Get('players/:playerId/history')

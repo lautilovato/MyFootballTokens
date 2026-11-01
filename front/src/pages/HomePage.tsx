@@ -2,9 +2,22 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { useCredits } from '../app/useCredits';
 import { AppHeader } from '../components/AppHeader';
+import { ConfirmModal } from '../components/confirm-modal/ConfirmModal';
+import type { MarketListingsProps } from '../components/MarketListings';
 import { MarketFilters } from '../components/MarketFilters';
 import { PlayerDetailPanel } from '../components/PlayerDetailPanel';
 import { PlayerGrid } from '../components/PlayerGrid';
+import { PriceHistoryModal } from '../components/PriceHistoryModal';
+import {
+  fetchPlayerListings,
+  marketErrorMessage,
+  purchaseListing,
+  type PlayerListing,
+  type PlayerListingsPage,
+} from '../services/market.service';
+import { extractApiErrorCode } from '../services/packs.service';
+import { strategyLabel } from '../services/quote.mapper';
+import { fetchCurrentQuote } from '../services/quotes.service';
 import { useAuth } from '../services/useAuth';
 import {
   fetchLeagues,
@@ -22,16 +35,22 @@ import {
   nextFilters,
   paramsFromFilters,
 } from './home-filters';
+import { usePriceHistory } from './usePriceHistory';
+
+/** Cartas a la venta por página en el panel de detalle (09-mercado FR-027). */
+export const LISTINGS_PAGE_SIZE = 10;
 
 /**
  * Home de mercado (06-home). Orquesta: no implementa lógica de negocio ni habla con la red
  * por su cuenta — todo el tráfico pasa por `services/` (constitución §7).
  *
- * El estado de filtros, página y jugador seleccionado vive en la URL (research #10).
+ * El estado de filtros, página y jugador seleccionado vive en la URL (research #10). La compra
+ * de una carta (09-mercado US2) se confirma acá y, al terminar, se refrescan el saldo, las cartas
+ * a la venta del detalle y el listado del Market (FR-041).
  */
 export default function HomePage() {
   const { user, logout } = useAuth();
-  const { balance } = useCredits();
+  const { balance, refresh: refreshBalance } = useCredits();
   const [searchParams, setSearchParams] = useSearchParams();
 
   const filters = useMemo(() => filtersFromParams(searchParams), [searchParams]);
@@ -45,6 +64,20 @@ export default function HomePage() {
   const [detail, setDetail] = useState<ApiPlayerDetail | null>(null);
   const [detailLoading, setDetailLoading] = useState(false);
   const [detailError, setDetailError] = useState<string | null>(null);
+
+  const [listings, setListings] = useState<PlayerListingsPage | null>(null);
+  const [listingsPage, setListingsPage] = useState(1);
+  const [listingsLoading, setListingsLoading] = useState(false);
+  const [listingsError, setListingsError] = useState<string | null>(null);
+  const [pendingBuy, setPendingBuy] = useState<PlayerListing | null>(null);
+  const [buying, setBuying] = useState(false);
+  const [buyMessage, setBuyMessage] = useState<MarketListingsProps['message']>(null);
+  // Estrategia de la cotización vigente del jugador abierto (10-historial-operaciones FR-020).
+  const [quoteLabel, setQuoteLabel] = useState<string | null>(null);
+  const priceHistory = usePriceHistory();
+  // Se incrementan para volver a pedir el listado del Market y las cartas a la venta (FR-041).
+  const [marketVersion, setMarketVersion] = useState(0);
+  const [listingsVersion, setListingsVersion] = useState(0);
 
   // Clave estable del conjunto de filtros: evita relanzar la búsqueda cuando lo único que
   // cambió en la URL es el jugador abierto en el panel.
@@ -71,7 +104,7 @@ export default function HomePage() {
       cancelled = true;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [filtersKey]);
+  }, [filtersKey, marketVersion]);
 
   useEffect(() => {
     fetchLeagues()
@@ -105,6 +138,85 @@ export default function HomePage() {
       cancelled = true;
     };
   }, [selectedId]);
+
+  // La línea «Cotizado con …» del panel es opcional: si el pedido falla, el panel sigue igual.
+  useEffect(() => {
+    setQuoteLabel(null);
+    if (!selectedId) return;
+
+    let cancelled = false;
+    fetchCurrentQuote(selectedId)
+      .then((quote) => {
+        if (!cancelled) setQuoteLabel(quote ? strategyLabel(quote.strategy) : null);
+      })
+      .catch(() => {
+        if (!cancelled) setQuoteLabel(null);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [selectedId]);
+
+  // Al cambiar de jugador, la lista de cartas a la venta vuelve a su primera página.
+  useEffect(() => {
+    setListingsPage(1);
+    setBuyMessage(null);
+  }, [selectedId]);
+
+  useEffect(() => {
+    if (!selectedId) {
+      setListings(null);
+      return;
+    }
+
+    let cancelled = false;
+    setListingsLoading(true);
+    setListingsError(null);
+
+    fetchPlayerListings(selectedId, listingsPage, LISTINGS_PAGE_SIZE)
+      .then((result) => {
+        if (!cancelled) setListings(result);
+      })
+      .catch(() => {
+        if (!cancelled) setListingsError('No se pudieron cargar las cartas a la venta.');
+      })
+      .finally(() => {
+        if (!cancelled) setListingsLoading(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [selectedId, listingsPage, listingsVersion]);
+
+  /**
+   * Confirmada la compra (FR-039): se compra al precio que vio el usuario. Pase lo que pase se
+   * vuelven a pedir el saldo y las cartas a la venta, y tras un éxito también el Market (FR-041,
+   * FR-042).
+   */
+  const confirmBuy = useCallback(async () => {
+    if (!pendingBuy || listings?.price == null) return;
+    const listing = pendingBuy;
+    const price = listings.price;
+    setPendingBuy(null);
+    setBuying(true);
+    setBuyMessage(null);
+    try {
+      const bought = await purchaseListing(listing.listingId, price);
+      setBuyMessage({
+        kind: 'success',
+        text: `Compraste la carta #${bought.serial} por ${bought.price.toLocaleString('es-AR')} créditos.`,
+      });
+      setMarketVersion((v) => v + 1);
+    } catch (err) {
+      setBuyMessage({ kind: 'error', text: marketErrorMessage(extractApiErrorCode(err)) });
+    } finally {
+      setBuying(false);
+      setListingsVersion((v) => v + 1);
+      await refreshBalance();
+    }
+  }, [pendingBuy, listings, refreshBalance]);
 
   const applyFilters = useCallback(
     (incoming: PlayerFilters) => {
@@ -217,11 +329,58 @@ export default function HomePage() {
             loading={detailLoading}
             error={detailError}
             onClose={closePanel}
+            priceHistoryView={
+              detail ? { quoteLabel, onOpen: () => priceHistory.openFor(detail.id, detail.name) } : null
+            }
+            market={{
+              price: listings?.price ?? null,
+              listings: listings?.data ?? [],
+              page: listings?.meta.page ?? listingsPage,
+              totalPages: listings?.meta.totalPages ?? 0,
+              balance,
+              loading: listingsLoading && !listings,
+              error: listingsError,
+              busy: buying || pendingBuy !== null,
+              message: buyMessage,
+              onBuy: setPendingBuy,
+              onPage: setListingsPage,
+            }}
           />
         )}
       </div>
+
+      <PriceHistoryModal
+        open={priceHistory.state.open}
+        playerName={priceHistory.state.playerName}
+        quotes={priceHistory.state.quotes}
+        loading={priceHistory.state.loading}
+        error={priceHistory.state.error}
+        selectedIndex={priceHistory.state.selectedIndex}
+        highlightIndex={priceHistory.state.highlightIndex}
+        onSelect={priceHistory.select}
+        onRetry={priceHistory.retry}
+        onClose={priceHistory.close}
+        filters={priceHistory.filters}
+      />
+
+      <ConfirmModal
+        open={pendingBuy !== null}
+        title="Comprar carta"
+        description={pendingBuy ? describePurchase(detail?.name, pendingBuy, listings?.price ?? null, balance) : undefined}
+        confirmLabel="Comprar"
+        onConfirm={() => void confirmBuy()}
+        onCancel={() => setPendingBuy(null)}
+      />
     </main>
   );
+}
+
+/** Confirmación de una compra: la carta, el precio y el saldo que quedaría (FR-039). */
+function describePurchase(name: string | undefined, listing: PlayerListing, price: number | null, balance: number | null): string {
+  const card = `${name ?? 'Carta'} #${listing.serial}`;
+  if (price === null) return card;
+  const after = balance === null ? '' : ` Te quedarían ${(balance - price).toLocaleString('es-AR')} créditos.`;
+  return `${card} cuesta ${price.toLocaleString('es-AR')} créditos.${after}`;
 }
 
 function describeError(err: unknown): string {

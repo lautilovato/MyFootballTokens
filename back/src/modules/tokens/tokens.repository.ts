@@ -72,12 +72,15 @@ export class TokensRepository {
     );
     if (players.length === 0) return { total: Number(total), players, tokens: [] };
 
+    // `listing_id`: la publicación activa del token, si está a la venta (09-mercado FR-025). El
+    // índice único parcial garantiza a lo sumo una, así que el join no duplica filas.
     const tokens = await this.em.execute<InventoryTokenRow[]>(
-      `select "id", "serial", "player_id"
-         from "token"
-        where "owner_id" = ? and "status" = 'de_usuario'
-          and "player_id" in (${players.map(() => '?').join(', ')})
-        order by "player_id", "serial"`,
+      `select t."id", t."serial", t."player_id", l."id" as "listing_id"
+         from "token" t
+         left join "listing" l on l."token_id" = t."id" and l."status" = 'activa'
+        where t."owner_id" = ? and t."status" = 'de_usuario'
+          and t."player_id" in (${players.map(() => '?').join(', ')})
+        order by t."player_id", t."serial"`,
       [userId, ...players.map((p) => p.player_id)],
     );
     return { total: Number(total), players, tokens };
@@ -122,4 +125,5 @@ export interface InventoryTokenRow {
   id: string;
   serial: number;
   player_id: string;
+  listing_id: string | null;
 }

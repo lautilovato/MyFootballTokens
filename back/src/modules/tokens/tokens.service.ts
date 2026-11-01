@@ -45,7 +45,7 @@ export class TokensService {
         count: Number(row.count),
         tokens: tokens
           .filter((t) => t.player_id === row.player_id)
-          .map((t) => ({ id: t.id, serial: Number(t.serial) })),
+          .map((t) => ({ id: t.id, serial: Number(t.serial), listingId: t.listing_id ?? null })),
       })),
       meta: { total, page, limit, totalPages: Math.ceil(total / limit) },
     };

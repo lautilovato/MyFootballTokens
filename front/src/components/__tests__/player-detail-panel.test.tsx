@@ -1,6 +1,8 @@
 import { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { MemoryRouter } from 'react-router-dom';
+import type { MarketListingsProps } from '../MarketListings';
 import { PlayerDetailPanel } from '../PlayerDetailPanel';
 import type { ApiPlayerDetail } from '../../services/players.service';
 
@@ -22,7 +24,7 @@ const PLAYER: ApiPlayerDetail = {
   assists: 5,
   marketValue: 8450,
   changePct: 12.5,
-  supply: { minted: 100, total: 100 },
+  supply: { minted: 100, total: 100 }, forSaleCount: 0,
   priceHistory: Array.from({ length: 30 }, (_, i) => 8000 + i * 15),
   league: 'Premier League',
   season: '2025-2026',
@@ -112,42 +114,54 @@ describe('PlayerDetailPanel', () => {
     expect(container.textContent).toContain('Sin dato');
   });
 
-  it('el bloque de compra está deshabilitado (FR-033)', () => {
-    render(<PlayerDetailPanel player={PLAYER} loading={false} error={null} onClose={() => {}} />);
+  // 09-mercado FR-038 reemplaza la maqueta de compra (06 FR-032, FR-033) por MarketListings.
 
-    const buyButton = [...container.querySelectorAll('button')].find((b) =>
-      b.textContent?.includes('Buy token'),
+  const market = (overrides: Partial<MarketListingsProps> = {}): MarketListingsProps => ({
+    price: 8450,
+    listings: [{ listingId: 'l1', tokenId: 't1', serial: 7, mine: false, listedAt: '2026-10-20T12:00:00.000Z' }],
+    page: 1,
+    totalPages: 1,
+    balance: 10_000,
+    loading: false,
+    error: null,
+    busy: false,
+    message: null,
+    onBuy: vi.fn(),
+    onPage: vi.fn(),
+    ...overrides,
+  });
+
+  it('el bloque de compra muestra las cartas a la venta que recibe y compra por la página', () => {
+    const props = market();
+    render(
+      <MemoryRouter>
+        <PlayerDetailPanel player={PLAYER} loading={false} error={null} onClose={() => {}} market={props} />
+      </MemoryRouter>,
     );
-    expect(buyButton).toBeDefined();
-    expect(buyButton!.disabled).toBe(true);
 
-    const amount = container.querySelector<HTMLInputElement>('input[type="number"]');
-    expect(amount).not.toBeNull();
-    expect(amount!.disabled).toBe(true);
+    expect(container.querySelector('section[aria-label="Compra de cartas"]')).not.toBeNull();
+    expect(container.textContent).toContain('#7');
+    const buy = [...container.querySelectorAll('button')].find((b) => b.textContent === 'Comprar')!;
+    act(() => buy.click());
+    expect(props.onBuy).toHaveBeenCalledWith(props.listings[0]);
   });
 
-  it('ningún clic en la compra emite una petición (FR-032, SC-007)', () => {
-    const fetchSpy = vi.spyOn(globalThis, 'fetch');
-    render(<PlayerDetailPanel player={PLAYER} loading={false} error={null} onClose={() => {}} />);
-
-    const buyButton = [...container.querySelectorAll('button')].find((b) =>
-      b.textContent?.includes('Buy token'),
-    )!;
-    act(() => {
-      buyButton.dispatchEvent(new MouseEvent('click', { bubbles: true }));
-    });
-
-    expect(fetchSpy).not.toHaveBeenCalled();
-    fetchSpy.mockRestore();
-  });
-
-  it('identifica la compra como maqueta y la gráfica ya no (FR-023)', () => {
-    render(<PlayerDetailPanel player={PLAYER} loading={false} error={null} onClose={() => {}} />);
+  it('ya no tiene selector de cantidad ni la maqueta inerte', () => {
+    render(
+      <MemoryRouter>
+        <PlayerDetailPanel player={PLAYER} loading={false} error={null} onClose={() => {}} market={market()} />
+      </MemoryRouter>,
+    );
     const text = container.textContent ?? '';
-    expect(text).toContain('No disponible');
-    expect(text).toContain('todavía no está habilitada');
-    expect(text).not.toContain('Maqueta');
-    expect(text).not.toContain('simulad');
+    expect(container.querySelector('input[type="number"]')).toBeNull();
+    expect(text).not.toContain('Buy token');
+    expect(text).not.toContain('No disponible');
+    expect(text).not.toContain('todavía no está habilitada');
+  });
+
+  it('sin datos del mercado no muestra el bloque de compra', () => {
+    render(<PlayerDetailPanel player={PLAYER} loading={false} error={null} onClose={() => {}} />);
+    expect(container.querySelector('section[aria-label="Compra de cartas"]')).toBeNull();
   });
 
   describe('historial de cotizaciones', () => {
@@ -180,6 +194,57 @@ describe('PlayerDetailPanel', () => {
 
       expect(chart()).toBeNull();
       expect(container.textContent).toContain('Hay una sola cotización');
+    });
+
+    /** 10-historial-operaciones FR-019, FR-020 — «Ver más» y la estrategia de la cotización vigente. */
+    describe('gráfico completo', () => {
+      const viewOf = (quoteLabel: string | null = 'Performance v2') => ({ quoteLabel, onOpen: vi.fn() });
+      const verMas = () => [...container.querySelectorAll('button')].find((b) => b.textContent === 'Ver más');
+
+      it('con cotizaciones ofrece «Ver más» y lo avisa al apretarlo', () => {
+        const view = viewOf();
+        render(<PlayerDetailPanel player={PLAYER} loading={false} error={null} onClose={() => {}} priceHistoryView={view} />);
+
+        expect(verMas()).toBeDefined();
+        act(() => verMas()!.click());
+        expect(view.onOpen).toHaveBeenCalledTimes(1);
+      });
+
+      it('con una sola cotización también lo ofrece', () => {
+        const player = { ...PLAYER, priceHistory: [1000], changePct: 0 };
+        render(<PlayerDetailPanel player={player} loading={false} error={null} onClose={() => {}} priceHistoryView={viewOf()} />);
+        expect(verMas()).toBeDefined();
+      });
+
+      it('sin cotizaciones no lo ofrece', () => {
+        const player = { ...PLAYER, priceHistory: [], changePct: 0, marketValue: 0 };
+        render(<PlayerDetailPanel player={player} loading={false} error={null} onClose={() => {}} priceHistoryView={viewOf()} />);
+        expect(verMas()).toBeUndefined();
+        expect(container.textContent).not.toContain('Cotizado con');
+      });
+
+      it('sin priceHistoryView no ofrece «Ver más» ni la línea de estrategia', () => {
+        render(<PlayerDetailPanel player={PLAYER} loading={false} error={null} onClose={() => {}} />);
+        expect(verMas()).toBeUndefined();
+        expect(container.textContent).not.toContain('Cotizado con');
+      });
+
+      it('indica con qué estrategia y versión se calculó la cotización vigente', () => {
+        render(<PlayerDetailPanel player={PLAYER} loading={false} error={null} onClose={() => {}} priceHistoryView={viewOf()} />);
+        expect(container.textContent).toContain('Cotizado con Performance v2');
+      });
+
+      it('si todavía no se conoce la estrategia omite la línea y conserva «Ver más»', () => {
+        render(<PlayerDetailPanel player={PLAYER} loading={false} error={null} onClose={() => {}} priceHistoryView={viewOf(null)} />);
+        expect(container.textContent).not.toContain('Cotizado con');
+        expect(verMas()).toBeDefined();
+      });
+
+      it('el mini-gráfico sigue siendo el de las últimas cotizaciones', () => {
+        render(<PlayerDetailPanel player={PLAYER} loading={false} error={null} onClose={() => {}} priceHistoryView={viewOf()} />);
+        const polyline = container.querySelector('svg[aria-label="Historial de cotizaciones"] polyline');
+        expect(polyline?.getAttribute('points')?.split(' ')).toHaveLength(30);
+      });
     });
 
     it('un jugador nunca cotizado no muestra gráfica ni una variación inventada', () => {
