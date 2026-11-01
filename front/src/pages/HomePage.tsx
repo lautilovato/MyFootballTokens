@@ -250,7 +250,7 @@ export default function HomePage() {
   return (
     <main className="min-h-screen bg-navy-deep text-slate-200">
       {/* 08-sobres FR-052, FR-053: accesos a sobres e inventario y saldo. */}
-      <AppHeader username={user?.username} balance={balance} onLogout={logout} />
+      <AppHeader username={user?.username} balance={balance} onLogout={logout} isAdmin={user?.role === 'admin'} />
 
       <div className="flex flex-col gap-6 p-6 md:flex-row">
         <MarketFilters leagues={leagues} filters={filters} onChange={applyFilters} />

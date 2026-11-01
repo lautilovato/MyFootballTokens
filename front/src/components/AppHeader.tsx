@@ -5,6 +5,8 @@ interface AppHeaderProps {
   /** Nulo mientras no se conoce. */
   balance: number | null;
   onLogout: () => void;
+  /** Muestra el acceso al panel (11-admin-panel FR-012). */
+  isAdmin?: boolean;
 }
 
 const navClass = ({ isActive }: { isActive: boolean }) =>
@@ -14,7 +16,7 @@ const navClass = ({ isActive }: { isActive: boolean }) =>
  * Encabezado de las pantallas con sesión (08-sobres FR-052, FR-053): accesos a Sobres,
  * Inventario y Mi perfil (10-historial-operaciones FR-001), saldo, usuario y cierre de sesión. Presentacional: recibe el saldo, no lo pide.
  */
-export function AppHeader({ username, balance, onLogout }: AppHeaderProps) {
+export function AppHeader({ username, balance, onLogout, isAdmin = false }: AppHeaderProps) {
   return (
     <header className="flex flex-wrap items-center justify-between gap-3 border-b border-white/10 px-6 py-4">
       <Link to="/" className="title-display text-2xl text-neon-blue">
@@ -30,6 +32,11 @@ export function AppHeader({ username, balance, onLogout }: AppHeaderProps) {
         <NavLink to="/profile" className={navClass}>
           Mi perfil
         </NavLink>
+        {isAdmin && (
+          <NavLink to="/admin" className={navClass}>
+            Admin
+          </NavLink>
+        )}
       </nav>
       <div className="flex items-center gap-4 text-sm">
         <span className="font-semibold text-gold-bright" aria-label="Saldo">

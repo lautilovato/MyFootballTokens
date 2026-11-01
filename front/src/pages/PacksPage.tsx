@@ -130,7 +130,7 @@ export default function PacksPage() {
 
   return (
     <main className="min-h-screen bg-navy-deep text-slate-200">
-      <AppHeader username={user?.username} balance={balance} onLogout={logout} />
+      <AppHeader username={user?.username} balance={balance} onLogout={logout} isAdmin={user?.role === 'admin'} />
 
       <div className="mx-auto max-w-6xl p-6">
         <h1 className="title-display mb-2 text-3xl text-slate-100">Sobres</h1>

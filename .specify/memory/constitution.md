@@ -1,5 +1,28 @@
 <!--
 SYNC IMPACT REPORT
+Version change: 4.1.0 -> 4.2.0
+Rationale: MINOR bump - ampliacion explicita de la lista cerrada del stack de Frontend (seccion
+2), como esa lista exige, y aclaracion de la seccion 5. No se elimina ni redefine nada de forma
+incompatible. Disparado por /speckit-constitution durante la feature 11-admin-panel. Decision
+del equipo (2026-10-31): se autoriza una libreria para los graficos del panel de administracion.
+Modified principles:
+  - 2. Stack Tecnologico Estricto / Frontend - nuevo item "Graficos: Recharts", solo en
+    componentes presentacionales de components/, sin acceso a red ni a services/ y con
+    alternativa en texto. Los graficos ya construidos a mano no estan obligados a migrar.
+  - 5. Reglas de Dominio de Negocio - "Tokens": se aclara que una cuenta con rol de administrador
+    no es un superusuario: no posee tokens por su rol ni representa a la plataforma.
+Added sections: none (se agrega el item "Graficos" dentro de la lista de Frontend)
+Removed sections: none
+Deferred placeholders / TODOs: none
+Impact on dependent artifacts:
+  - 11-admin-panel/spec.md: ya cumple (Assumptions, "Gráficos con librería" y "Constitución"). Su
+    linea "Depende de" cita la constitucion v4.1.0; debe pasar a citar v4.2.0.
+  - front/package.json: debe declarar `recharts` en la implementacion de 11-admin-panel.
+  - 05-auth/spec.md: su supuesto "Un único rol de usuario" queda reemplazado por 11-admin-panel.
+    Por convencion del proyecto no se edita.
+  - Templates: none checked by this command (see Scope Guard).
+
+PREVIOUS AMENDMENT (4.1.0)
 Version change: 4.0.0 -> 4.1.0
 Rationale: MINOR bump - ampliacion material de la seccion 5 con la regla nueva "Mercado", que
 fija como se traduce la cotizacion del jugador al precio de un token, algo que 4.0.0 dejaba
@@ -234,6 +257,9 @@ sección.
     animaciones al desmontar el componente. Los timelines no acceden a la red ni a
     `services/`, y todo componente animado MUST respetar `prefers-reduced-motion`. No se
     autoriza ninguna otra librería de animación.
+*   **Gráficos:** Recharts. Se usa solo en componentes presentacionales de `components/`, que
+    reciben los datos por props y no acceden a la red ni a `services/`. Todo gráfico MUST
+    ofrecer sus datos también como texto. No se autoriza ninguna otra librería de gráficos.
 *   **Cliente HTTP:** Axios.
 *   **Estado global:** se resuelve con la Context API nativa de React. No se autoriza
     ninguna librería externa de manejo de estado.
@@ -275,7 +301,7 @@ Cada vez que la IA genere código, debe contemplar por defecto los siguientes re
     *   Se debe realizar un manejo seguro de los tokens de autenticación y autorización.
 
 ## 5. Reglas de Dominio de Negocio
-*   **Tokens:** Existen exactamente 100 tokens por jugador; esa cantidad es fija y ningún proceso emite tokens de más ni los destruye. Al emitirse, los tokens no tienen dueño de usuario: pertenecen a la **plataforma**, que no es un usuario (no tiene credenciales, saldo ni inventario). No existe un superusuario. Ningún token está a la venta de entrada: los usuarios los obtienen abriendo sobres, y el mercado arranca vacío, formado únicamente por los tokens que salieron en sobres. Un token en poder de la plataforma MUST NOT comprarse ni venderse, con una única excepción: un token que vuelve a la plataforma desde un usuario (por ejemplo, por la eliminación de su cuenta) MAY ser puesto a la venta por la plataforma a su precio de mercado (ver «Mercado»), y MUST NOT volver a los sobres.
+*   **Tokens:** Existen exactamente 100 tokens por jugador; esa cantidad es fija y ningún proceso emite tokens de más ni los destruye. Al emitirse, los tokens no tienen dueño de usuario: pertenecen a la **plataforma**, que no es un usuario (no tiene credenciales, saldo ni inventario). No existe un superusuario: una cuenta con rol de administrador no posee tokens por su rol, no representa a la plataforma y lo que la plataforma cobra no se le acredita. Ningún token está a la venta de entrada: los usuarios los obtienen abriendo sobres, y el mercado arranca vacío, formado únicamente por los tokens que salieron en sobres. Un token en poder de la plataforma MUST NOT comprarse ni venderse, con una única excepción: un token que vuelve a la plataforma desde un usuario (por ejemplo, por la eliminación de su cuenta) MAY ser puesto a la venta por la plataforma a su precio de mercado (ver «Mercado»), y MUST NOT volver a los sobres.
 *   **Créditos:** Los usuarios reciben al registrarse una cantidad inicial de créditos, que usan para abrir sobres y operar. Los créditos son números enteros y el saldo de un usuario MUST NOT ser negativo. La entrega inicial es una **emisión** de créditos; lo que la plataforma cobra (por ejemplo, al abrir un sobre o al vender un token en su poder) es ingreso de la plataforma, sale de circulación y no se acredita a ninguna cuenta.
 *   **Precio y momento cero:** No existe un valor fijo por token ni un precio inicial por defecto. El precio de un jugador lo determina el cálculo de su score. El «momento cero» de un token es el instante en que sale de un sobre, y se valúa con la cotización vigente del jugador en ese instante. Un jugador sin cálculo no tiene cotización y MUST NOT recibir un precio por defecto.
 *   **Cotización:** Es el precio del **jugador** (se calcula por jugador, no por token) en créditos enteros, derivado exclusivamente de un **score** no negativo y **sin tope superior** (la escala de referencia va de 0 a 1, pero un jugador que supera la referencia alta puntúa por encima de 1 y su precio no tiene máximo), calculado como suma ponderada de métricas normalizadas. El modelo de valuación MUST admitir estrategias configurables y versionadas, basadas en métricas de performance con ponderaciones variables —positivas o negativas— y diferenciables por posición, e incluir métricas de contexto como la reputación mundial del jugador. El sistema MUST dejar traza, en cada cotización periódica, de la estrategia y versión utilizadas, del score y de su desglose por métrica.
@@ -361,4 +387,4 @@ datos que el backend expone en sus respuestas.
 *   Toda revisión de código (Pull Request) debe verificar el cumplimiento de esta constitución antes de ser aprobada.
 *   Cualquier excepción o complejidad que se aparte de estas reglas debe justificarse explícitamente en la spec o plan correspondiente.
 
-**Versión**: 4.1.0 | **Ratificada**: 2026-08-29 | **Última Enmienda**: 2026-10-20
+**Versión**: 4.2.0 | **Ratificada**: 2026-08-29 | **Última Enmienda**: 2026-10-31

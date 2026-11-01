@@ -57,7 +57,7 @@ export default function ProfilePage() {
 
   return (
     <main className="min-h-screen bg-navy-deep text-slate-200">
-      <AppHeader username={user?.username} balance={balance} onLogout={logout} />
+      <AppHeader username={user?.username} balance={balance} onLogout={logout} isAdmin={user?.role === 'admin'} />
 
       <div className="mx-auto max-w-4xl p-6">
         <header className="mb-8">

@@ -9,15 +9,12 @@ import { JwtService } from '@nestjs/jwt';
 import * as bcrypt from 'bcrypt';
 import { randomBytes } from 'node:crypto';
 import { User } from '../../infrastructure/database/entities/user.entity';
-import { INVALID_CREDENTIALS_MESSAGE } from '../../shared/auth/auth.constants';
+import { BCRYPT_COST, INVALID_CREDENTIALS_MESSAGE } from '../../shared/auth/auth.constants';
 import { CreditsService } from '../credits/credits.service';
 import { AuthRepository, normalizeEmail } from './auth.repository';
 import { AuthResponseDto, UserPublicDto } from './dto/auth-response.dto';
 import { LoginDto } from './dto/login.dto';
 import { RegisterDto } from './dto/register.dto';
-
-/** Costo fijo, no configurable por entorno: una palanca así solo apunta hacia abajo (research #1). */
-const BCRYPT_COST = 10;
 
 /**
  * Hash descartable contra el que se compara cuando la cuenta no existe.
@@ -95,6 +92,7 @@ export class AuthService {
       id: user.id,
       email: user.email,
       username: user.username,
+      role: user.role,
     };
     return { accessToken: this.jwtService.sign(payload), user: publicUser };
   }

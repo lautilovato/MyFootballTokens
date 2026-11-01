@@ -4500,6 +4500,26 @@
           "enumItems": [],
           "mappedType": "string"
         },
+        "role": {
+          "name": "role",
+          "type": "text",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": false,
+          "unique": false,
+          "length": null,
+          "precision": null,
+          "scale": null,
+          "default": "'user'",
+          "comment": null,
+          "collation": null,
+          "enumItems": [
+            "user",
+            "admin"
+          ],
+          "mappedType": "enum"
+        },
         "updated_at": {
           "name": "updated_at",
           "type": "timestamptz(6)",
@@ -4563,6 +4583,12 @@
           "expression": "credits >= 0",
           "definition": "CHECK ((credits >= 0))",
           "columnName": "credits"
+        },
+        {
+          "name": "user_role_check",
+          "expression": "\"role\" in ('user', 'admin')",
+          "definition": "check (\"role\" in ('user', 'admin'))",
+          "columnName": "role"
         }
       ],
       "triggers": [],

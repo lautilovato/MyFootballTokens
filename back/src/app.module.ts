@@ -12,6 +12,7 @@ import {
   DEFAULT_RATE_LIMIT_TTL_SECONDS,
 } from './shared/auth/auth.constants';
 import { LoggingModule } from './shared/logging/logging.module';
+import { AdminModule } from './modules/admin/admin.module';
 import { AuthModule } from './modules/auth/auth.module';
 import { CreditsModule } from './modules/credits/credits.module';
 import { HistoryModule } from './modules/history/history.module';
@@ -81,6 +82,8 @@ const observeImports =
     MarketModule,
     // 10-historial-operaciones: cartas adquiridas y vendidas del usuario.
     HistoryModule,
+    // 11-admin-panel: métricas de la plataforma para administradores.
+    AdminModule,
   ],
   controllers: [AppController],
   providers: [AppService],

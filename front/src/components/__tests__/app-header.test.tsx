@@ -18,11 +18,11 @@ afterEach(() => {
   container.remove();
 });
 
-function render(balance: number | null, onLogout = vi.fn(), path = '/') {
+function render(balance: number | null, onLogout = vi.fn(), path = '/', isAdmin = false) {
   act(() =>
     root.render(
       <MemoryRouter initialEntries={[path]}>
-        <AppHeader username="ana" balance={balance} onLogout={onLogout} />
+        <AppHeader username="ana" balance={balance} onLogout={onLogout} isAdmin={isAdmin} />
       </MemoryRouter>,
     ),
   );
@@ -42,6 +42,14 @@ describe('AppHeader', () => {
     render(2000);
     const links = [...container.querySelectorAll('a')].map((a) => [a.textContent, a.getAttribute('href')]);
     expect(links).toContainEqual(['Mi perfil', '/profile']);
+  });
+
+  it('solo un administrador ve el acceso al panel (11-admin-panel FR-012)', () => {
+    render(0, vi.fn(), '/', true);
+    expect(container.querySelector('a[href="/admin"]')?.textContent).toBe('Admin');
+
+    render(0);
+    expect(container.querySelector('a[href="/admin"]')).toBeNull();
   });
 
   it('muestra el saldo y el usuario', () => {

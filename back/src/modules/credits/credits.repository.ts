@@ -48,12 +48,16 @@ export class CreditsRepository {
     return true;
   }
 
-  /** Usuarios sin entrega inicial, de a tandas (regularización de FR-002). */
+  /**
+   * Usuarios sin entrega inicial, de a tandas (regularización de FR-002). Los administradores no
+   * reciben créditos: el seed no los emite y esto corre al arrancar (11-admin-panel FR-009).
+   */
   async findUsersWithoutInitialGrant(limit: number): Promise<string[]> {
     const rows = await this.em.execute<{ id: string }[]>(
       `select u."id"
          from "user" u
-        where not exists (
+        where u."role" <> 'admin'
+          and not exists (
           select 1 from "credit_movement" m
            where m."user_id" = u."id" and m."type" = 'entrega_inicial'
         )

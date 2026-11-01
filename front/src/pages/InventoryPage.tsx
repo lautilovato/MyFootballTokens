@@ -80,7 +80,7 @@ export default function InventoryPage() {
 
   return (
     <main className="min-h-screen bg-navy-deep text-slate-200">
-      <AppHeader username={user?.username} balance={balance} onLogout={logout} />
+      <AppHeader username={user?.username} balance={balance} onLogout={logout} isAdmin={user?.role === 'admin'} />
 
       <div className="mx-auto max-w-6xl p-6">
         <h1 className="title-display mb-6 text-3xl text-slate-100">Mis cartas</h1>
