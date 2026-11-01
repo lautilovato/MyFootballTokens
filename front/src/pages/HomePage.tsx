@@ -48,7 +48,7 @@ const ProfileIcon = (
 
 /**
  * Menú principal (12-menu-principal): la entrada a la aplicación, con sus cuatro secciones en
- * mosaico, al estilo del menú de FIFA. Ranking todavía no tiene pantalla (FR-005).
+ * mosaico, al estilo del menú de FIFA.
  */
 export default function HomePage() {
   const { user, logout } = useAuth();
@@ -79,7 +79,7 @@ export default function HomePage() {
             accent="gold"
             className="sm:col-span-2"
           />
-          <MenuTile title="Ranking" description="Mirá cómo te ubicás entre los demás jugadores." icon={RankingIcon} accent="violet" />
+          <MenuTile to="/ranking" title="Ranking" description="Los jugadores más caros según la estrategia activa." icon={RankingIcon} accent="violet" />
           <MenuTile to="/profile" title="Mi perfil" description="Tu saldo y tu historial de operaciones." icon={ProfileIcon} accent="green" />
         </nav>
       </div>
