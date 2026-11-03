@@ -252,9 +252,9 @@ describe('Valuation strategies (e2e)', () => {
   });
 
   it('una estrategia inexistente responde 404', async () => {
-    await get('/valuation-strategies/no-existe/versions').expect(404);
-    await admin('post', '/valuation-strategies/no-existe/versions', PERFORMANCE_V1).expect(404);
-    await admin('post', '/valuation-strategies/no-existe/activate').expect(404);
+    expect((await get('/valuation-strategies/no-existe/versions')).status).toBe(404);
+    expect((await admin('post', '/valuation-strategies/no-existe/versions', PERFORMANCE_V1)).status).toBe(404);
+    expect((await admin('post', '/valuation-strategies/no-existe/activate')).status).toBe(404);
   });
 
   it('US4-8: escribir exige la clave administrativa y leer exige sesión', async () => {

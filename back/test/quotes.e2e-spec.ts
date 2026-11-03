@@ -287,8 +287,8 @@ describe('Quotes (e2e)', () => {
     });
 
     it('rechaza una strategyKey inexistente (404) o mal formada (400)', async () => {
-      await recalculate({ strategyKey: 'no-existe' }).expect(404);
-      await recalculate({ strategyKey: 'MAL FORMADA' }).expect(400);
+      expect((await recalculate({ strategyKey: 'no-existe' })).status).toBe(404);
+      expect((await recalculate({ strategyKey: 'MAL FORMADA' })).status).toBe(400);
     });
 
     it('US1-5: una corrida que falla no deja cotizaciones parciales y queda FAILED', async () => {
@@ -486,16 +486,16 @@ describe('Quotes (e2e)', () => {
     });
 
     it('US2-5: un jugador inexistente responde 404, no un precio por defecto', async () => {
-      await get(`/quotes/players/${randomUUID()}/current`).expect(404);
-      await get(`/quotes/players/${randomUUID()}/history`).expect(404);
-      await get('/quotes/players/no-es-un-uuid/current').expect(400);
+      expect((await get(`/quotes/players/${randomUUID()}/current`)).status).toBe(404);
+      expect((await get(`/quotes/players/${randomUUID()}/history`)).status).toBe(404);
+      expect((await get('/quotes/players/no-es-un-uuid/current')).status).toBe(400);
     });
 
     it('US2-6: rechaza parámetros inválidos del historial', async () => {
-      await history('Defensor', '?from=ayer').expect(400);
-      await history('Defensor', '?from=2026-10-10T00:00:00Z&to=2026-10-01T00:00:00Z').expect(400);
-      await history('Defensor', '?limit=500').expect(400);
-      await history('Defensor', '?page=0').expect(400);
+      expect((await history('Defensor', '?from=ayer')).status).toBe(400);
+      expect((await history('Defensor', '?from=2026-10-10T00:00:00Z&to=2026-10-01T00:00:00Z')).status).toBe(400);
+      expect((await history('Defensor', '?limit=500')).status).toBe(400);
+      expect((await history('Defensor', '?page=0')).status).toBe(400);
     });
 
     it('US2-7: sin sesión iniciada la consulta se rechaza', async () => {
@@ -585,7 +585,7 @@ describe('Quotes (e2e)', () => {
     });
 
     it('un jugador inexistente responde 404', async () => {
-      await putReputation(randomUUID(), 50).expect(404);
+      expect((await putReputation(randomUUID(), 50)).status).toBe(404);
     });
 
     it('US3-5: el lote informa actualizados y no encontrados sin abortar al resto', async () => {
