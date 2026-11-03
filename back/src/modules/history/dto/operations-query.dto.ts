@@ -1,8 +1,8 @@
 import { ApiPropertyOptional } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
 import { IsIn, IsInt, IsOptional, Max, Min } from 'class-validator';
-import { HISTORY_TYPES } from '../history-filter';
-import type { HistoryType } from '../history-filter';
+import { HISTORY_TYPES } from '../history.model';
+import type { HistoryType } from '../history.model';
 
 export const DEFAULT_HISTORY_PAGE_SIZE = 20;
 export const MAX_HISTORY_PAGE_SIZE = 100;

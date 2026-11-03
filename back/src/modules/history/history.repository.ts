@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { EntityManager } from '@mikro-orm/postgresql';
-import type { HistoryKind } from './history-filter';
+import type { HistoryKind } from './history.model';
 
 /** Una carta del historial tal como la devuelve la base, antes de armar el DTO. */
 export interface HistoryRow {
