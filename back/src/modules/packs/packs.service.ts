@@ -11,14 +11,12 @@ import { SchedulerRegistry } from '@nestjs/schedule';
 import { CronJob } from 'cron';
 import { CorrelationIdStore } from '../../shared/logging/correlation-id.store';
 import { PinoLoggerService } from '../../shared/logging/pino-logger.service';
-import { Rarity, ovrFromReputation, rarityFromOvr } from '../player/player.model';
 import { PlayerService } from '../player/player.service';
 import { TokensService } from '../tokens/tokens.service';
 import { PackCatalogResponseDto } from './dto/pack-catalog-response.dto';
 import { DEFAULT_OPENINGS_PAGE_SIZE, OpeningsQueryDto } from './dto/openings-query.dto';
 import { OpeningCardDto, PackOpeningResponseDto, PackOpeningsPageDto } from './dto/pack-opening-response.dto';
 import { StockSyncResultDto } from './dto/stock-sync-result.dto';
-import { PACK_TYPES, PackTypeKey, PacksConfig, RARITY_ORDER, isPackType, parsePacksConfig } from './pack-config.rules';
 import { planBatch } from './pack-stock-planner';
 import {
   InsufficientCreditsError,
@@ -27,28 +25,24 @@ import {
   PackSoldOutError,
   PacksRepository,
 } from './packs.repository';
+import {
+  DEFAULT_STOCK_CRON,
+  PACKS_STOCK_VERSION_KEY,
+  PACK_ERRORS,
+  PACK_TYPES,
+  PacksConfig,
+  batchParams,
+  catalogCacheKey,
+  catalogTypes,
+  isPackType,
+  parsePacksConfig,
+  rarityOfReputation,
+} from './packs.model';
 
 const LOG_CONTEXT = 'PacksService';
 
-/** Contador que versiona la caché del catálogo (research #9). */
-export const PACKS_STOCK_VERSION_KEY = 'packs:stock-version';
-
 /** Nombre del job en `SchedulerRegistry`. */
 export const PACKS_CRON_JOB_NAME = 'packs-stock-sync';
-
-const DEFAULT_STOCK_CRON = '*/15 * * * *';
-
-export const PACK_ERRORS = {
-  typeNotFound: { code: 'PACK_TYPE_NOT_FOUND', message: 'El tipo de sobre no existe' },
-  notAvailable: { code: 'PACKS_NOT_AVAILABLE', message: 'Todavía no hay sobres disponibles' },
-  soldOut: { code: 'PACK_SOLD_OUT', message: 'No quedan sobres de ese tipo' },
-  insufficientCredits: { code: 'INSUFFICIENT_CREDITS', message: 'El saldo no alcanza para abrir este sobre' },
-} as const;
-
-/** Rareza de un jugador según su reputación: la misma regla que la home (FR-016, FR-069). */
-export function rarityOfReputation(reputation: number | null): Rarity {
-  return rarityFromOvr(ovrFromReputation(reputation));
-}
 
 @Injectable()
 export class PacksService implements OnModuleInit {
@@ -89,7 +83,7 @@ export class PacksService implements OnModuleInit {
     const correlationId = CorrelationIdStore.getId() ?? randomUUID();
     const emittedTokens = await this.tokensService.emitMissing();
 
-    const params = this.batchParams();
+    const params = batchParams(this.config);
     const batch = await this.packsRepository.generateBatch(
       (tokens) =>
         planBatch(
@@ -144,7 +138,7 @@ export class PacksService implements OnModuleInit {
   /** Tipos de sobre con precio, cartas, stock y probabilidades en vivo (FR-010). */
   async getCatalog(): Promise<PackCatalogResponseDto> {
     const version = (await this.cacheGet<number>(PACKS_STOCK_VERSION_KEY)) ?? 0;
-    const cacheKey = `packs:types:v${version}`;
+    const cacheKey = catalogCacheKey(version);
     const cached = await this.cacheGet<PackCatalogResponseDto>(cacheKey);
     if (cached) return cached;
 
@@ -156,24 +150,7 @@ export class PacksService implements OnModuleInit {
 
     const result: PackCatalogResponseDto = {
       stockGenerated,
-      types: PACK_TYPES.map((type) => {
-        const total = RARITY_ORDER.reduce((sum, r) => sum + cards[type][r], 0);
-        return {
-          type,
-          price: this.config[type].price,
-          cards: this.config[type].cards,
-          remaining: remaining[type],
-          probabilities:
-            remaining[type] === 0 || total === 0
-              ? null
-              : {
-                  common: cards[type].common / total,
-                  rare: cards[type].rare / total,
-                  epic: cards[type].epic / total,
-                  legendary: cards[type].legendary / total,
-                },
-        };
-      }),
+      types: catalogTypes(this.config, remaining, cards),
     };
 
     await this.cacheSet(cacheKey, result);
@@ -268,16 +245,6 @@ export class PacksService implements OnModuleInit {
   }
 
   // --------------------------------------------------------------------------- internos
-
-  /** Parámetros del lote: los que rigen para los sobres que se generan ahora (FR-046). */
-  private batchParams(): Record<string, unknown> {
-    return Object.fromEntries(
-      PACK_TYPES.map((t: PackTypeKey) => [
-        t,
-        { cards: this.config[t].cards, probabilities: this.config[t].probabilities, share: this.config[t].share },
-      ]),
-    );
-  }
 
   /**
    * Job de sincronización del stock (FR-012), como red de seguridad de los disparos directos:

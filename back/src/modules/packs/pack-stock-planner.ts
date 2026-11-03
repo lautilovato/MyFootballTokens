@@ -14,7 +14,7 @@
  *  3. Mezcla aleatoria y corte en sobres.
  */
 import type { Rarity } from '../player/player.model';
-import { PACK_TYPES, PackTypeKey, PacksConfig, RARITY_ORDER } from './pack-config.rules';
+import { PACK_TYPES, PackTypeKey, PacksConfig, RARITY_ORDER } from './packs.model';
 
 export interface EligibleToken {
   tokenId: string;

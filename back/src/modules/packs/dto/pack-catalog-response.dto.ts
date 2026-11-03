@@ -1,6 +1,6 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { PACK_TYPES } from '../pack-config.rules';
-import type { PackTypeKey } from '../pack-config.rules';
+import { PACK_TYPES } from '../packs.model';
+import type { PackTypeKey } from '../packs.model';
 
 export class RarityProbabilitiesDto {
   @ApiProperty({ minimum: 0, maximum: 1 })
