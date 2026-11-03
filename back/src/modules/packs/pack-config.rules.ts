@@ -8,7 +8,7 @@
  * `PACK_TYPES_CONFIG` es un JSON opcional con los cuatro tipos completos. Sin la variable rigen
  * los valores por defecto de la spec (Assumptions).
  */
-import type { Rarity } from '../player/rarity';
+import type { Rarity } from '../player/player.model';
 
 /** De menor a mayor: el orden en que rige la monotonía de FR-009. */
 export const PACK_TYPES = ['common', 'rare', 'epic', 'legendary'] as const;

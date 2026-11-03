@@ -3,8 +3,9 @@ import { ApiBearerAuth, ApiOperation, ApiParam, ApiQuery, ApiResponse, ApiTags }
 import { JwtAuthGuard } from '../../shared/auth/jwt-auth.guard';
 import { SWAGGER_BEARER_SCHEME } from '../../shared/auth/auth.constants';
 import { PlayerPosition } from '../../infrastructure/database/entities/player.entity';
-import { GetPlayersFilterDto, RARITIES } from './dto/get-players-filter.dto';
+import { GetPlayersFilterDto } from './dto/get-players-filter.dto';
 import { PlayerDetailDto, PlayersPageDto } from './dto/player-response.dto';
+import { RARITIES } from './player.model';
 import { PlayerService } from './player.service';
 
 @ApiTags('Players')

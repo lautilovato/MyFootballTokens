@@ -1,7 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { IsolationLevel } from '@mikro-orm/core';
 import { EntityManager } from '@mikro-orm/postgresql';
-import { raritySqlCase } from '../player/rarity';
+import { raritySqlCase } from '../player/player.model';
 import { bucketUnit, fillBuckets, todayIn, type ActivityBucket, type AdminPeriod, type BucketUnit } from './admin-period';
 
 /** Todo lo que se lee de la base en una carga del panel, antes de armar el DTO. */

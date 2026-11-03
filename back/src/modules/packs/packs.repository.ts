@@ -1,8 +1,8 @@
 import { randomInt, randomUUID } from 'node:crypto';
 import { Injectable } from '@nestjs/common';
 import { EntityManager } from '@mikro-orm/postgresql';
-import type { Rarity } from '../player/rarity';
-import { raritySqlCase } from '../player/rarity';
+import type { Rarity } from '../player/player.model';
+import { raritySqlCase } from '../player/player.model';
 import { PACK_TYPES, PackTypeKey, RARITY_ORDER } from './pack-config.rules';
 import type { PlannedBatch } from './pack-stock-planner';
 

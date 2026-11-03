@@ -1,4 +1,4 @@
-import type { Rarity } from '../player/rarity';
+import type { Rarity } from '../player/player.model';
 import { DEFAULT_PACK_CONFIG, PACK_TYPES, PacksConfig, RARITY_ORDER, topShare, validatePacksConfig } from './pack-config.rules';
 import { EligibleToken, planBatch, planPackCounts } from './pack-stock-planner';
 

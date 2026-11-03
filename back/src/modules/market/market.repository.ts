@@ -2,7 +2,7 @@ import { randomUUID } from 'node:crypto';
 import { Injectable } from '@nestjs/common';
 import { EntityManager } from '@mikro-orm/postgresql';
 import { ListingStatus } from '../../infrastructure/database/entities/listing.entity';
-import { raritySqlCase } from '../player/rarity';
+import { raritySqlCase } from '../player/player.model';
 
 /**
  * Precio del token = cotización vigente del jugador (FR-001, research #2): el espejo

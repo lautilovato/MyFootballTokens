@@ -1,6 +1,6 @@
 import { ApiProperty } from '@nestjs/swagger';
 import { PlayerCardDto } from '../../player/dto/player-response.dto';
-import type { Rarity } from '../../player/rarity';
+import type { Rarity } from '../../player/player.model';
 import { PACK_TYPES } from '../pack-config.rules';
 import type { PackTypeKey } from '../pack-config.rules';
 
