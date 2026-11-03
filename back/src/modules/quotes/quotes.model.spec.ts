@@ -2,11 +2,14 @@ import {
   DEFAULT_HISTORY_PAGE_SIZE,
   DEFAULT_RECALC_CRON,
   DEFAULT_RUNS_PAGE_SIZE,
+  MAX_FUTURE_MS,
   NO_SEASON_DATA,
   RUN_IN_PROGRESS,
+  currentQuoteCacheKey,
   dedupeReputationItems,
   describeError,
   hasSeasonData,
+  isBeyondFutureMargin,
   parseHistoryRange,
   partitionReputationOutcome,
   planSchedule,
@@ -178,6 +181,26 @@ describe('quotes.model', () => {
       expect(describeError('texto')).toBe('texto');
       expect(describeError(42)).toBe('42');
       expect(describeError(undefined)).toBe('undefined');
+    });
+  });
+
+  describe('isBeyondFutureMargin (10-historial-operaciones FR-031)', () => {
+    const now = new Date('2026-11-03T12:00:00Z');
+
+    it('acepta instantes pasados y hasta 24 horas por delante del servidor', () => {
+      expect(isBeyondFutureMargin(new Date('2026-11-01T00:00:00Z'), now)).toBe(false);
+      expect(isBeyondFutureMargin(new Date(now.getTime() + MAX_FUTURE_MS), now)).toBe(false);
+    });
+
+    it('rechaza lo que pasa el margen', () => {
+      expect(isBeyondFutureMargin(new Date(now.getTime() + MAX_FUTURE_MS + 1), now)).toBe(true);
+    });
+  });
+
+  describe('currentQuoteCacheKey (research #11)', () => {
+    it('vive dentro del espacio de la versión vigente', () => {
+      expect(currentQuoteCacheKey(4, 'abc')).toBe('quotes:current:v4:abc');
+      expect(currentQuoteCacheKey(4, 'abc')).not.toBe(currentQuoteCacheKey(5, 'abc'));
     });
   });
 });

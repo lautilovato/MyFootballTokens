@@ -67,6 +67,27 @@ export function resolvePagination(
   return { page: query.page ?? 1, limit: query.limit ?? defaultLimit };
 }
 
+/**
+ * Margen del instante consultado hacia el futuro (10-historial-operaciones FR-031, research #4): el
+ * final de «hoy» en la zona horaria del usuario puede estar hasta 24 horas por delante del reloj
+ * del servidor, y ese pedido es legítimo. Más allá de eso, la fecha es futura y se rechaza.
+ */
+export const MAX_FUTURE_MS = 24 * 60 * 60 * 1000;
+
+export function isBeyondFutureMargin(at: Date, now: Date = new Date()): boolean {
+  return at.getTime() > now.getTime() + MAX_FUTURE_MS;
+}
+
+/**
+ * Contador que versiona el espacio de claves de la cotización actual (research #11). Cada
+ * corrida confirmada lo incrementa y todas las entradas viejas quedan inalcanzables al instante.
+ */
+export const QUOTES_VERSION_KEY = 'quotes:version';
+
+export function currentQuoteCacheKey(version: number, playerId: string): string {
+  return `quotes:current:v${version}:${playerId}`;
+}
+
 export interface DateRange {
   from?: Date;
   to?: Date;

@@ -118,7 +118,7 @@ describe('rarity', () => {
   });
 });
 
-describe('price-movement', () => {
+describe('priceMovement', () => {
   it('sin cotizaciones: serie vacía y variación 0', () => {
     expect(priceMovement([])).toEqual({ changePct: 0, history: [] });
   });

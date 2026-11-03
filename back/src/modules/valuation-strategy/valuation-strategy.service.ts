@@ -9,7 +9,7 @@ import type { StrategyWeights } from '../../infrastructure/database/entities/val
 import { PinoLoggerService } from '../../shared/logging/pino-logger.service';
 import { StrategyConfigDto } from './dto/strategy-config.dto';
 import { StrategyResponseDto, StrategyVersionDto } from './dto/strategy-response.dto';
-import { validateStrategyConfig } from './strategy-config.rules';
+import { validateStrategyConfig } from './valuation-strategy.model';
 import { StrategyWithVersion, ValuationStrategyRepository } from './valuation-strategy.repository';
 
 const LOG_CONTEXT = 'ValuationStrategyService';
