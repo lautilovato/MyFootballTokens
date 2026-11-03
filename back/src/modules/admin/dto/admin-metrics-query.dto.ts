@@ -1,7 +1,7 @@
 import { ApiPropertyOptional } from '@nestjs/swagger';
 import { IsIn, IsOptional, IsString, IsTimeZone } from 'class-validator';
 
-/** Período del panel. Las reglas entre campos están en `admin-period.ts`. */
+/** Período del panel. Las reglas entre campos están en `admin.model.ts`. */
 export class AdminMetricsQueryDto {
   @ApiPropertyOptional({ format: 'date', description: 'Junto con `to`. Sin ninguno de los dos, toda la historia.' })
   @IsOptional()
