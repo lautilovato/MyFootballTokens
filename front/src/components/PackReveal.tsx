@@ -9,22 +9,17 @@ export interface RevealedCard {
 
 interface PackRevealProps {
   cards: RevealedCard[];
-  price: number;
-  balanceAfter: number;
   onOpenAnother: () => void;
 }
 
 /**
  * Las cartas que salieron de un sobre (08-sobres FR-058, FR-059): exactamente las que informó
- * la apertura, con el precio cobrado y el saldo resultante, y los dos caminos para seguir.
+ * la apertura, y los dos caminos para seguir. El saldo ya actualizado está en el encabezado.
  */
-export function PackReveal({ cards, price, balanceAfter, onOpenAnother }: PackRevealProps) {
+export function PackReveal({ cards, onOpenAnother }: PackRevealProps) {
   return (
     <section aria-label="Cartas obtenidas" className="flex flex-col items-center gap-6">
       <h2 className="title-display text-2xl text-neon-blue">¡Te tocaron {cards.length} cartas!</h2>
-      <p className="text-sm text-slate-400">
-        Pagaste {price.toLocaleString('es-AR')} créditos · Saldo: {balanceAfter.toLocaleString('es-AR')} créditos
-      </p>
       <ul className="flex flex-wrap justify-center gap-6">
         {cards.map(({ key, card }) => (
           <li key={key} className="w-56">

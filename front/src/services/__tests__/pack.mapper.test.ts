@@ -17,7 +17,7 @@ function apiPlayer(over: Partial<ApiPlayerCard> = {}): ApiPlayerCard {
     assists: 5,
     marketValue: 9500,
     changePct: 5,
-    supply: { minted: 100, total: 100 }, forSaleCount: 0,
+    supply: { minted: 100, total: 100 }, forSaleCount: 0, firstListedSerial: null,
     priceHistory: [9000, 9500],
     ...over,
   };

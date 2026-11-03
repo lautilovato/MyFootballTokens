@@ -101,7 +101,7 @@ function player(id: string, name: string): ApiPlayerCard {
     assists: 1,
     marketValue: 6000,
     changePct: 0,
-    supply: { minted: 100, total: 100 }, forSaleCount: 0,
+    supply: { minted: 100, total: 100 }, forSaleCount: 0, firstListedSerial: null,
     priceHistory: [],
   };
 }
@@ -221,6 +221,8 @@ describe('PacksPage', () => {
     expect(reveal.querySelectorAll('li')).toHaveLength(2);
     expect(reveal.textContent).toContain('Ezequiel Epico');
     expect(reveal.textContent).toContain('Raul Raro');
+    expect(reveal.textContent).not.toContain('Pagaste');
+    expect(container.textContent).not.toContain('Cada sobre trae');
     // El catálogo se vuelve a pedir: restantes y probabilidades reales (FR-059).
     expect(getCatalog).toHaveBeenCalledTimes(2);
     expect(button('Abrir otro')).toBeDefined();
@@ -254,6 +256,7 @@ describe('PacksPage', () => {
     await click(button('Abrir otro'));
 
     expect(container.querySelector('[aria-label="Cartas obtenidas"]')).toBeNull();
+    expect(container.textContent).toContain('Cada sobre trae');
     expect(pack('rare')).not.toBeNull();
   });
 

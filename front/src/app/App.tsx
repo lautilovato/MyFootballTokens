@@ -8,6 +8,7 @@ import InventoryPage from '../pages/InventoryPage';
 import LoginPage from '../pages/LoginPage';
 import PacksPage from '../pages/PacksPage';
 import ProfilePage from '../pages/ProfilePage';
+import RankingPage from '../pages/RankingPage';
 import RegisterPage from '../pages/RegisterPage';
 import { AuthProvider } from '../services/AuthProvider';
 import { CreditsProvider } from './CreditsProvider';
@@ -60,6 +61,15 @@ export default function App() {
               element={
                 <ProtectedRoute>
                   <InventoryPage />
+                </ProtectedRoute>
+              }
+            />
+            {/* 13-ranking FR-006: solo con sesion. */}
+            <Route
+              path="/ranking"
+              element={
+                <ProtectedRoute>
+                  <RankingPage />
                 </ProtectedRoute>
               }
             />

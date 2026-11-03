@@ -25,6 +25,7 @@ import { PlayerImagesModule } from './modules/player-images/player-images.module
 import { PlayerModule } from './modules/player/player.module';
 import { PlayerStatsModule } from './modules/player-stats/player-stats.module';
 import { QuotesModule } from './modules/quotes/quotes.module';
+import { RankingModule } from './modules/ranking/ranking.module';
 import { ValuationStrategyModule } from './modules/valuation-strategy/valuation-strategy.module';
 import { TeamWhoScoredMatchingModule } from './modules/team-whoscored-matching/team-whoscored-matching.module';
 
@@ -84,6 +85,8 @@ const observeImports =
     HistoryModule,
     // 11-admin-panel: métricas de la plataforma para administradores.
     AdminModule,
+    // 13-ranking: los jugadores más caros según la estrategia activa.
+    RankingModule,
   ],
   controllers: [AppController],
   providers: [AppService],

@@ -2,6 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { EntityManager } from '@mikro-orm/postgresql';
 import { Player } from '../../infrastructure/database/entities/player.entity';
 import { PlayerSeasonStats } from '../../infrastructure/database/entities/player-season-stats.entity';
+import { Token, TokenStatus } from '../../infrastructure/database/entities/token.entity';
 import { GetPlayersFilterDto } from './dto/get-players-filter.dto';
 import { PlayerWithStats } from './dto/player-response.dto';
 import { OVR_MAX } from './ovr';
@@ -110,7 +111,12 @@ export class PlayerRepository {
     if (!player) return null;
 
     const [row] = await this.attachStats([player], season);
-    return row;
+    return { ...row, inCirculation: await this.countInCirculation(id) };
+  }
+
+  /** Mismo criterio que el ranking y `cards.inCirculation` del panel de administración: tokens de usuarios. */
+  private async countInCirculation(playerId: string): Promise<number> {
+    return this.em.count(Token, { player: playerId, status: TokenStatus.OWNED });
   }
 
   /**
@@ -183,7 +189,7 @@ export class PlayerRepository {
 
     const playerIds = players.map((p) => p.id);
     const priceSeries = await this.findPriceSeries(playerIds);
-    const forSale = await this.countActiveListings(playerIds);
+    const forSale = await this.findActiveListings(playerIds);
 
     // Sin temporada cargada no hay estadísticas, pero un jugador cotizado sigue teniendo precios.
     const stats =
@@ -199,24 +205,28 @@ export class PlayerRepository {
       player,
       stats: byPlayerId.get(player.id) ?? null,
       priceSeries: priceSeries.get(player.id) ?? [],
-      forSaleCount: forSale.get(player.id) ?? 0,
+      forSaleCount: forSale.get(player.id)?.count ?? 0,
+      firstListedSerial: forSale.get(player.id)?.firstSerial ?? null,
     }));
   }
 
   /**
    * Cartas a la venta de cada jugador de la página (09-mercado FR-026): sus publicaciones activas,
-   * de usuarios y de la plataforma. Una consulta para toda la página, por el mismo motivo que las
-   * estadísticas; la sostiene `listing_player_active_index`.
+   * de usuarios y de la plataforma, y el número de la más antigua, la primera de la lista del
+   * detalle (15-numero-de-carta FR-003). Una consulta para toda la página, por el mismo motivo que
+   * las estadísticas; la sostiene `listing_player_active_index`.
    */
-  private async countActiveListings(playerIds: string[]): Promise<Map<string, number>> {
-    const rows = await this.em.execute<{ player_id: string; count: number }[]>(
-      `select "player_id", count(*)::int as "count"
-         from "listing"
-        where "status" = 'activa' and "player_id" in (${playerIds.map(() => '?').join(', ')})
-        group by "player_id"`,
+  private async findActiveListings(playerIds: string[]): Promise<Map<string, { count: number; firstSerial: number }>> {
+    const rows = await this.em.execute<{ player_id: string; count: number; first_serial: number }[]>(
+      `select l."player_id", count(*)::int as "count",
+              (array_agg(t."serial" order by l."created_at", l."id"))[1] as "first_serial"
+         from "listing" l
+         join "token" t on t."id" = l."token_id"
+        where l."status" = 'activa' and l."player_id" in (${playerIds.map(() => '?').join(', ')})
+        group by l."player_id"`,
       playerIds,
     );
-    return new Map(rows.map((row) => [row.player_id, Number(row.count)]));
+    return new Map(rows.map((row) => [row.player_id, { count: Number(row.count), firstSerial: Number(row.first_serial) }]));
   }
 
   /**

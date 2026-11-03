@@ -15,7 +15,7 @@ const BASE: ApiPlayerCard = {
   assists: 5,
   marketValue: 8450,
   changePct: 12.5,
-  supply: { minted: 100, total: 100 }, forSaleCount: 0,
+  supply: { minted: 100, total: 100 }, forSaleCount: 0, firstListedSerial: null,
   priceHistory: Array.from({ length: 30 }, (_, i) => 8000 + i * 15),
 };
 
@@ -27,7 +27,7 @@ describe('player-card.mapper', () => {
     expect(card.name).toBe('Erling Haaland');
     expect(card.position).toBe('FW');
     expect(card.overall).toBe(86);
-    expect(card.token).toEqual({ rarity: 'legendary', supply: 100, minted: 100 });
+    expect(card.token).toEqual({ rarity: 'legendary', supply: 100 });
     expect(card.price.current).toBe(8450);
     expect(card.price.changePct).toBe(12.5);
     expect(card.price.history).toHaveLength(30);

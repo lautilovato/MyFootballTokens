@@ -59,6 +59,10 @@ export interface PlayerWithStats {
   priceSeries?: number[];
   /** Publicaciones activas del jugador (09-mercado FR-026). */
   forSaleCount?: number;
+  /** Número de carta de su publicación activa más antigua (15-numero-de-carta FR-003). */
+  firstListedSerial?: number | null;
+  /** Cartas en poder de usuarios. Solo lo completa el detalle (15-numero-de-carta FR-005). */
+  inCirculation?: number;
 }
 
 function toNumberOrNull(value: string | number | null | undefined): number | null {
@@ -141,7 +145,14 @@ export class PlayerCardDto {
   })
   forSaleCount!: number;
 
-  static fromEntity({ player, stats, priceSeries = [], forSaleCount = 0 }: PlayerWithStats): PlayerCardDto {
+  @ApiProperty({
+    type: Number,
+    nullable: true,
+    description: 'Número de carta de la publicación activa más antigua del jugador. Nulo si no tiene cartas a la venta (15-numero-de-carta FR-003)',
+  })
+  firstListedSerial!: number | null;
+
+  static fromEntity({ player, stats, priceSeries = [], forSaleCount = 0, firstListedSerial = null }: PlayerWithStats): PlayerCardDto {
     const dto = new PlayerCardDto();
     const marketValue = Number(player.baseValue);
     const movement = priceMovement(priceSeries);
@@ -164,6 +175,7 @@ export class PlayerCardDto {
     dto.supply = { minted: TOKEN_SUPPLY_MINTED, total: TOKEN_SUPPLY_TOTAL };
     dto.priceHistory = movement.history;
     dto.forSaleCount = forSaleCount;
+    dto.firstListedSerial = firstListedSerial;
 
     return dto;
   }
@@ -197,6 +209,13 @@ export class PlayerDetailDto extends PlayerCardDto {
   @ApiProperty({ type: Number, nullable: true, example: 8.63, description: 'Rating de la temporada vigente' })
   rating!: number | null;
 
+  @ApiProperty({
+    type: Number,
+    minimum: 0,
+    description: 'Cartas del jugador en poder de usuarios, a la venta o no. Dato real (15-numero-de-carta FR-005)',
+  })
+  inCirculation!: number;
+
   static override fromEntity(row: PlayerWithStats): PlayerDetailDto {
     const { player, stats } = row;
     // Reusa el mapeo de la carta para que OVR, rareza y precios sean exactamente los
@@ -212,6 +231,7 @@ export class PlayerDetailDto extends PlayerCardDto {
     dto.dribbles = toNumberOrNull(stats?.dribbles);
     dto.tackles = toNumberOrNull(stats?.tackles);
     dto.rating = toNumberOrNull(stats?.rating);
+    dto.inCirculation = row.inCirculation ?? 0;
 
     return dto;
   }

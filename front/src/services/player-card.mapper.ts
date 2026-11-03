@@ -43,7 +43,6 @@ export function toPlayerCardData(player: ApiPlayerCard): PlayerCardData {
     token: {
       rarity: player.rarity,
       supply: player.supply.total,
-      minted: player.supply.minted,
     },
     price: {
       current: player.marketValue,

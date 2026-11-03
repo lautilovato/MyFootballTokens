@@ -24,7 +24,7 @@ const PLAYER: ApiPlayerDetail = {
   assists: 5,
   marketValue: 8450,
   changePct: 12.5,
-  supply: { minted: 100, total: 100 }, forSaleCount: 0,
+  supply: { minted: 100, total: 100 }, forSaleCount: 0, firstListedSerial: null,
   priceHistory: Array.from({ length: 30 }, (_, i) => 8000 + i * 15),
   league: 'Premier League',
   season: '2025-2026',
@@ -35,6 +35,7 @@ const PLAYER: ApiPlayerDetail = {
   dribbles: 0.9,
   tackles: 0.3,
   rating: 8.63,
+  inCirculation: 3,
 };
 
 let container: HTMLDivElement;
@@ -90,9 +91,20 @@ describe('PlayerDetailPanel', () => {
     expect(container.textContent).toContain('Premier League');
   });
 
-  it('informa el supply como emitido sobre total (FR-014)', () => {
+  it('informa las cartas reales en circulación sobre el total (15-numero-de-carta FR-005)', () => {
     render(<PlayerDetailPanel player={PLAYER} loading={false} error={null} onClose={() => {}} />);
-    expect(container.textContent).toContain('100/100');
+    expect(container.textContent).toContain('Cartas en circulación3/100');
+  });
+
+  it('muestra todo en español: títulos, posición y rareza', () => {
+    render(<PlayerDetailPanel player={PLAYER} loading={false} error={null} onClose={() => {}} />);
+    const text = container.textContent ?? '';
+    for (const label of ['Detalle del jugador', 'Historial de precios', 'Valor de mercado', 'Valoración', 'Delantero', 'Legendaria']) {
+      expect(text).toContain(label);
+    }
+    for (const label of ['Player Details', 'Price History', 'Market value', 'Supply', 'legendary', 'OVR']) {
+      expect(text).not.toContain(label);
+    }
   });
 
   it('muestra "Sin dato" en las métricas nulas, no cero (FR-015)', () => {
@@ -279,6 +291,14 @@ describe('PlayerDetailPanel', () => {
     });
 
     expect(closed).toBe(true);
+  });
+
+  it('flota a la derecha, fuera del flujo, para no mover las cartas (14-detalle-inventario FR-005)', () => {
+    render(<PlayerDetailPanel player={PLAYER} loading={false} error={null} onClose={() => {}} />);
+    const classes = container.querySelector('aside')!.classList;
+    expect(classes.contains('fixed')).toBe(true);
+    expect(classes.contains('md:right-6')).toBe(true);
+    expect(classes.contains('md:sticky')).toBe(false);
   });
 
   it('muestra el estado de carga sin datos', () => {

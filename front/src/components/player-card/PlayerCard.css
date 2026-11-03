@@ -304,14 +304,6 @@
   background: #2a2f3a;
   transform: translateY(-50%);
 }
-.pc__minted {
-  margin: 1.4cqw 0 0;
-  white-space: nowrap;
-  font-size: 3.8cqw;
-  font-weight: 700;
-  color: #bfc8d8;
-  text-transform: uppercase;
-}
 .pc__spark {
   display: block;
   width: 100%;

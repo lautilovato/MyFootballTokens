@@ -38,6 +38,8 @@ export interface ApiPlayerCard {
   priceHistory: number[];
   /** Cartas del jugador a la venta: publicaciones activas de usuarios y de la plataforma (09-mercado FR-026). */
   forSaleCount: number;
+  /** Número de carta de su publicación más antigua; nulo sin cartas a la venta (15-numero-de-carta). */
+  firstListedSerial: number | null;
 }
 
 export interface ApiPlayerDetail extends ApiPlayerCard {
@@ -51,6 +53,8 @@ export interface ApiPlayerDetail extends ApiPlayerCard {
   dribbles: number | null;
   tackles: number | null;
   rating: number | null;
+  /** Cartas del jugador en poder de usuarios, a la venta o no (15-numero-de-carta FR-005). */
+  inCirculation: number;
 }
 
 export interface PlayersPage {

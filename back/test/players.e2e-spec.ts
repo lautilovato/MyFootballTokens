@@ -664,6 +664,25 @@ describe('Players / Leagues (e2e)', () => {
       expect(notForSale.body.forSaleCount).toBe(0);
     });
 
+    it('informa el número de carta de la publicación más antigua (15-numero-de-carta FR-003)', async () => {
+      const id = idsByName.get('Dario Comun')!;
+      const [oldest] = await em.execute<{ serial: number }[]>(
+        `select t."serial"
+           from "listing" l
+           join "token" t on t."id" = l."token_id"
+          where l."player_id" = ? and l."status" = 'activa'
+          order by l."created_at", l."id"
+          limit 1`,
+        [id],
+      );
+
+      const { body } = await get('/players?limit=100').expect(200);
+      expect(body.data.find((p: any) => p.id === id).firstListedSerial).toBe(oldest.serial);
+
+      const notForSale = await get(`/players/${idsByName.get('Quique NoEnVenta')}`).expect(200);
+      expect(notForSale.body.firstListedSerial).toBeNull();
+    });
+
     it('baja cuando se cierran publicaciones, sin esperar la caché', async () => {
       const id = idsByName.get('Dario Comun')!;
       await get('/players?limit=100').expect(200); // queda en caché

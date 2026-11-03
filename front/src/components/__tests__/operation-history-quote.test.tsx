@@ -34,7 +34,7 @@ const player: ApiPlayerCard = {
   marketValue: 3000,
   changePct: 0,
   supply: { minted: 100, total: 100 },
-  forSaleCount: 0,
+  forSaleCount: 0, firstListedSerial: null,
   priceHistory: [],
 };
 

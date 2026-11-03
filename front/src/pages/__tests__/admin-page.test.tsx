@@ -9,6 +9,7 @@ vi.mock('../../services/admin.service', async (importOriginal) => ({
   ...(await importOriginal<typeof import('../../services/admin.service')>()),
   getAdminMetrics: vi.fn(),
 }));
+vi.mock('../AdminStrategies', () => ({ AdminStrategies: () => <p>Sección de estrategias</p> }));
 vi.mock('../../services/useAuth', () => ({
   useAuth: () => ({ user: { username: 'admin', role: 'admin' }, logout: vi.fn() }),
 }));
@@ -78,10 +79,10 @@ afterEach(() => {
   container.remove();
 });
 
-async function render() {
+async function render(path = '/admin') {
   await act(async () => {
     root.render(
-      <MemoryRouter>
+      <MemoryRouter initialEntries={[path]}>
         <AdminPage />
       </MemoryRouter>,
     );
@@ -89,6 +90,7 @@ async function render() {
 }
 
 const button = (text: string) => [...container.querySelectorAll('button')].find((b) => b.textContent === text) as HTMLButtonElement;
+const open = (section: string) => act(async () => button(section).click());
 const alertText = () => container.querySelector('[role="alert"]')?.textContent;
 
 function setDate(label: string, value: string) {
@@ -129,7 +131,9 @@ describe('AdminPage', () => {
   it('distingue las métricas de período de las de estado (FR-037)', async () => {
     await render();
 
+    await open('Actividad');
     expect(container.textContent).toContain('Usuarios nuevosPeríodo3');
+    await open('Economía');
     expect(container.textContent).toContain('Créditos en circulaciónHoy4.500');
   });
 
@@ -191,10 +195,13 @@ describe('AdminPage', () => {
   it('marca los tipos de sobre agotados y ofrece los datos como texto (FR-018, FR-028)', async () => {
     await render();
 
-    const cells = [...container.querySelectorAll('tbody th')].map((th) => th.textContent);
-    expect(cells).toContain('Épico (agotado)');
-    expect(cells).toContain('Mario Mercado');
-    expect(cells).toContain('30 oct');
+    const cells = () => [...container.querySelectorAll('tbody th')].map((th) => th.textContent);
+    await open('Cartas y sobres');
+    expect(cells()).toContain('Épico (agotado)');
+    await open('Mercado');
+    expect(cells()).toContain('Mario Mercado');
+    await open('Actividad');
+    expect(cells()).toContain('30 oct');
     expect(container.querySelector('tbody td')?.textContent).toBeTruthy();
   });
 
@@ -209,8 +216,68 @@ describe('AdminPage', () => {
     );
 
     await render();
+    expect(container.querySelector('[aria-label="La conciliación no cierra"]')).not.toBeNull();
 
+    await open('Economía');
     expect(alertText()).toContain('Créditos: no cierra');
     expect(alertText()).toContain('500');
+  });
+
+  describe('menú lateral (16-config-estrategia FR-008)', () => {
+    const titles = () => [...container.querySelectorAll('h2')].map((h2) => h2.textContent);
+    const strategies = () => [...container.querySelectorAll('p')].find((p) => p.textContent === 'Sección de estrategias')!;
+
+    it('lista las secciones y muestra una sola por vez, sin volver a pedir las métricas', async () => {
+      await render();
+
+      const menu = container.querySelector('nav[aria-label="Secciones del panel"]')!;
+      expect([...menu.querySelectorAll('button')].map((b) => b.textContent)).toEqual([
+        'Resumen',
+        'Actividad',
+        'Cartas y sobres',
+        'Mercado',
+        'Economía',
+        'Estrategias',
+      ]);
+      expect(titles()).toEqual(['Resumen']);
+      expect(button('Resumen').getAttribute('aria-current')).toBe('page');
+
+      await open('Mercado');
+      expect(titles()).toEqual(['Mercado']);
+      expect(button('Mercado').getAttribute('aria-current')).toBe('page');
+      expect(button('Resumen').getAttribute('aria-current')).toBeNull();
+      expect(fetchMetrics).toHaveBeenCalledTimes(1);
+    });
+
+    it('el período y «Actualizar» van junto a las métricas: el título y el menú no dependen de ellos', async () => {
+      await render();
+
+      const content = container.querySelector('nav[aria-label="Secciones del panel"]')!.parentElement!;
+      expect(content.contains(button('Actualizar'))).toBe(true);
+      expect(content.contains(container.querySelector('[aria-live="polite"]'))).toBe(true);
+      expect(content.contains(container.querySelector('h1'))).toBe(false);
+    });
+
+    it('la sección se abre desde la URL, y una desconocida vuelve al resumen', async () => {
+      await render('/admin?seccion=economia');
+      expect(titles()).toEqual(['Economía']);
+
+      act(() => root.unmount());
+      root = createRoot(container);
+      await render('/admin?seccion=otra');
+      expect(titles()).toEqual(['Resumen']);
+    });
+
+    it('estrategias no muestra el período y sigue montada al cambiar de sección', async () => {
+      await render();
+      const mounted = strategies();
+      expect(mounted.closest('[hidden]')).not.toBeNull();
+
+      await open('Estrategias');
+      expect(strategies()).toBe(mounted);
+      expect(mounted.closest('[hidden]')).toBeNull();
+      expect(button('Actualizar')).toBeUndefined();
+      expect(button('30 días')).toBeUndefined();
+    });
   });
 });

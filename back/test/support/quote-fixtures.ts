@@ -17,10 +17,13 @@ export interface SeedQuoteOptions {
   origin?: 'AUTOMATIC' | 'MANUAL';
   /** Espeja el precio en `player.base_value`, como hace el cierre de una corrida (07). Por defecto, sí. */
   mirror?: boolean;
+  /** Suma la cotización a una corrida ya sembrada, en vez de crear una propia. */
+  runId?: string;
 }
 
 export interface SeededQuote {
   id: string;
+  runId: string;
   price: number;
   calculatedAt: Date;
   strategyKey: string;
@@ -63,13 +66,15 @@ export async function seedQuote(em: EntityManager, playerId: string, options: Se
   const calculatedAt = options.calculatedAt ?? new Date();
   const versionId = await ensureStrategyVersion(fork, strategyKey, options.strategyName ?? `Estrategia ${strategyKey}`, version);
 
-  const runId = randomUUID();
-  await fork.execute(
-    `insert into "quote_run"
-       ("id", "trigger", "strategy_version_id", "status", "season", "started_at", "finished_at", "quoted_count", "skipped_count", "correlation_id")
-     values (?, ?, ?, 'COMPLETED', '2025-2026', ?, ?, 1, 0, 'e2e-seed-quote')`,
-    [runId, options.origin ?? 'MANUAL', versionId, calculatedAt, calculatedAt],
-  );
+  const runId = options.runId ?? randomUUID();
+  if (!options.runId) {
+    await fork.execute(
+      `insert into "quote_run"
+         ("id", "trigger", "strategy_version_id", "status", "season", "started_at", "finished_at", "quoted_count", "skipped_count", "correlation_id")
+       values (?, ?, ?, 'COMPLETED', '2025-2026', ?, ?, 1, 0, 'e2e-seed-quote')`,
+      [runId, options.origin ?? 'MANUAL', versionId, calculatedAt, calculatedAt],
+    );
+  }
 
   const id = randomUUID();
   await fork.execute(
@@ -82,5 +87,5 @@ export async function seedQuote(em: EntityManager, playerId: string, options: Se
   if (options.mirror ?? true) {
     await fork.execute(`update "player" set "base_value" = ? where "id" = ?`, [options.price, playerId]);
   }
-  return { id, price: options.price, calculatedAt, strategyKey, version };
+  return { id, runId, price: options.price, calculatedAt, strategyKey, version };
 }

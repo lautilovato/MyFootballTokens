@@ -27,7 +27,7 @@ afterEach(() => {
 
 /** 08-sobres US5-11, US6-7, FR-052 — sin sesión, las pantallas nuevas llevan al login. */
 describe('rutas protegidas', () => {
-  it.each(['/packs', '/inventory'])('%s sin sesión redirige a /login', async (path) => {
+  it.each(['/packs', '/inventory', '/ranking'])('%s sin sesión redirige a /login', async (path) => {
     window.history.replaceState(null, '', path);
     await act(async () => root.render(<App />));
     expect(window.location.pathname).toBe('/login');

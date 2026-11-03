@@ -5,9 +5,18 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import InventoryPage, { INVENTORY_PAGE_SIZE } from '../InventoryPage';
 import { getInventory, type InventoryItem, type InventoryPage as Page } from '../../services/inventory.service';
 import { publishListing, withdrawListing } from '../../services/market.service';
-import type { ApiPlayerCard } from '../../services/players.service';
+import { fetchPlayerDetail, type ApiPlayerCard } from '../../services/players.service';
+import { fetchCurrentQuote } from '../../services/quotes.service';
 
 vi.mock('../../services/inventory.service', () => ({ getInventory: vi.fn() }));
+vi.mock('../../services/players.service', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('../../services/players.service')>()),
+  fetchPlayerDetail: vi.fn(),
+}));
+vi.mock('../../services/quotes.service', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('../../services/quotes.service')>()),
+  fetchCurrentQuote: vi.fn(),
+}));
 vi.mock('../../services/market.service', async (importOriginal) => ({
   ...(await importOriginal<typeof import('../../services/market.service')>()),
   publishListing: vi.fn(),
@@ -31,6 +40,8 @@ vi.mock('../../app/useCredits', () => ({ useCredits: () => ({ balance: 1800, ref
 const fetchInventory = vi.mocked(getInventory);
 const publish = vi.mocked(publishListing);
 const withdraw = vi.mocked(withdrawListing);
+const detail = vi.mocked(fetchPlayerDetail);
+const currentQuote = vi.mocked(fetchCurrentQuote);
 
 function item(id: string, name: string, reputation: number, serials: number[], listed: number[] = []): InventoryItem {
   const player: ApiPlayerCard = {
@@ -46,7 +57,7 @@ function item(id: string, name: string, reputation: number, serials: number[], l
     assists: 0,
     marketValue: 3000,
     changePct: 0,
-    supply: { minted: 100, total: 100 }, forSaleCount: 0,
+    supply: { minted: 100, total: 100 }, forSaleCount: 0, firstListedSerial: null,
     priceHistory: [],
   };
   return { player, reputation, count: serials.length, tokens: serials.map((serial) => ({ id: `${id}-${serial}`, serial, listingId: listed.includes(serial) ? `l-${id}-${serial}` : null })) };
@@ -201,5 +212,82 @@ describe('InventoryPage', () => {
     await act(async () => button('Poner a la venta').click());
     await act(async () => button('confirmar').click());
     expect(container.querySelector('[role="alert"]')?.textContent).toBe('Esa carta ya está a la venta.');
+  });
+
+  /** 14-detalle-inventario — el detalle de la carta, con la venta en lugar de la compra. */
+  describe('detalle de una carta', () => {
+    const panel = () => container.querySelector('aside[aria-label="Detalle del jugador"]');
+    const sale = () => container.querySelector('section[aria-label="Venta de la carta"]');
+    const openCard = (index: number) =>
+      act(async () => container.querySelectorAll<HTMLElement>('.pc[role="button"]')[index].click());
+
+    beforeEach(() => {
+      detail.mockReset().mockResolvedValue({
+        ...item('p1', 'Leo Legendario', 91, []).player,
+        league: 'Liga E2E',
+        season: '2025-2026',
+        priceHistory: [2800, 3000],
+      } as never);
+      currentQuote.mockReset().mockResolvedValue(null);
+    });
+
+    it('sin tocar una carta no abre el detalle ni lo pide', async () => {
+      fetchInventory.mockResolvedValue(page([item('p1', 'Leo Legendario', 91, [3])]));
+      await render();
+
+      expect(panel()).toBeNull();
+      expect(detail).not.toHaveBeenCalled();
+    });
+
+    it('al tocar una carta muestra el detalle del jugador y ofrece vender esa carta, no comprar', async () => {
+      fetchInventory.mockResolvedValue(page([item('p1', 'Leo Legendario', 91, [3, 17])]));
+      await render();
+      await openCard(1);
+
+      expect(detail).toHaveBeenCalledWith('p1');
+      expect(panel()?.textContent).toContain('Partidos jugados');
+      expect(sale()?.textContent).toContain('Tu carta #17');
+      expect(sale()?.textContent).toContain('Vender');
+      expect(panel()?.textContent).not.toContain('Comprar');
+      expect(panel()?.textContent).not.toContain('Cartas a la venta');
+    });
+
+    it('«Vender» pide confirmación y, al publicar, el panel pasa a ofrecer retirarla', async () => {
+      fetchInventory.mockResolvedValueOnce(page([item('p1', 'Leo Legendario', 91, [3])]));
+      publish.mockResolvedValue({} as never);
+      await render();
+      await openCard(0);
+
+      fetchInventory.mockResolvedValue(page([item('p1', 'Leo Legendario', 91, [3], [3])]));
+      await act(async () => button('Vender').click());
+      expect(publish).not.toHaveBeenCalled();
+      await act(async () => button('confirmar').click());
+
+      expect(publish).toHaveBeenCalledWith('p1-3');
+      expect(sale()?.textContent).toContain('A la venta');
+      expect(sale()?.textContent).toContain('Retirar');
+    });
+
+    it('cerrar el panel o cambiar de página lo oculta', async () => {
+      fetchInventory.mockResolvedValue(page([item('p1', 'Leo Legendario', 91, [3])], { total: 20, totalPages: 2 }));
+      await render();
+      await openCard(0);
+      await act(async () => container.querySelector<HTMLElement>('button[aria-label="Cerrar el detalle"]')!.click());
+      expect(panel()).toBeNull();
+
+      await openCard(0);
+      await act(async () => button('Siguiente').click());
+      expect(panel()).toBeNull();
+    });
+
+    it('si falla el detalle lo informa y la carta sigue en el inventario', async () => {
+      detail.mockRejectedValue(new Error('caído'));
+      fetchInventory.mockResolvedValue(page([item('p1', 'Leo Legendario', 91, [3])]));
+      await render();
+      await openCard(0);
+
+      expect(panel()?.textContent).toContain('No se pudo cargar el detalle del jugador.');
+      expect(button('Poner a la venta')).toBeDefined();
+    });
   });
 });

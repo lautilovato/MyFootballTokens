@@ -39,16 +39,10 @@ describe('HomePage', () => {
     expect(titles).toEqual(['Mercado', 'Sobres', 'Ranking', 'Mi perfil']);
   });
 
-  it('Mercado, Sobres y Mi perfil llevan a su pantalla (FR-004)', () => {
+  it('cada sección lleva a su pantalla (FR-004, 13-ranking FR-006)', () => {
     const links = [...menu().querySelectorAll('a')].map((a) => a.getAttribute('href'));
-    expect(links).toEqual(['/market', '/packs', '/profile']);
-  });
-
-  it('Ranking se ve como próximamente y no se puede abrir (FR-005)', () => {
-    const ranking = menu().querySelector('[aria-disabled="true"]')!;
-    expect(ranking.textContent).toContain('Ranking');
-    expect(ranking.textContent).toContain('Próximamente');
-    expect(ranking.querySelector('a')).toBeNull();
+    expect(links).toEqual(['/market', '/packs', '/ranking', '/profile']);
+    expect(menu().querySelector('[aria-disabled="true"]')).toBeNull();
   });
 
   it('mantiene el encabezado con el saldo', () => {
