@@ -4,25 +4,13 @@ import { CorrelationIdStore } from '../../shared/logging/correlation-id.store';
 import { PinoLoggerService } from '../../shared/logging/pino-logger.service';
 import { CreditBalanceDto } from './dto/credit-balance.dto';
 import { InitialGrantsResultDto } from './dto/initial-grants-result.dto';
+import { DEFAULT_INITIAL_CREDITS, parseInitialCredits } from './credits.model';
 import { CreditsRepository } from './credits.repository';
 
 const LOG_CONTEXT = 'CreditsService';
 
-/** Cantidad inicial por defecto (spec, Assumptions). */
-export const DEFAULT_INITIAL_CREDITS = 2000;
-
 /** Tamaño de cada tanda de la regularización. */
 const BACKFILL_BATCH_SIZE = 200;
-
-/** Lee `INITIAL_CREDITS`: entero positivo, por defecto 2000 (FR-044, FR-045). */
-export function parseInitialCredits(raw: string | undefined): number {
-  if (raw === undefined || raw.trim() === '') return DEFAULT_INITIAL_CREDITS;
-  const value = Number(raw);
-  if (!Number.isInteger(value) || value <= 0) {
-    throw new Error(`INITIAL_CREDITS tiene que ser un entero positivo (recibido: "${raw}")`);
-  }
-  return value;
-}
 
 @Injectable()
 export class CreditsService implements OnModuleInit, OnApplicationBootstrap {

@@ -1,25 +1,5 @@
-/**
- * Nombre de país (tal como lo entrega Football-Data.org) → código de bandera (research #7).
- *
- * Función pura: sin NestJS, sin inyección, sin base de datos (constitución §7, excepción de
- * utilidades puras).
- *
- * Por qué existe: la entidad `Player` guarda `nationality` como el NOMBRE del país
- * ("England", "Argentina"), pero el componente de carta arma la URL de la bandera con un
- * código alpha-2 (`flagcdn.com/w160/{code}.png`). Sin esta traducción, toda bandera quedaría
- * rota. Se normaliza acá y no en el cliente porque es el dato crudo de un proveedor externo,
- * y porque así la grilla y el detalle comparten una sola fuente.
- *
- * Las selecciones británicas son la excepción que obliga a la tabla explícita: no existen en
- * ISO 3166-1 alpha-2 y flagcdn las sirve como subdivisiones, formato que el propio componente
- * documenta en sus tipos.
- *
- * Cobertura: los países con presencia real en las 5 ligas del catálogo. Un país ausente
- * devuelve null y la carta simplemente no dibuja bandera — nunca una imagen rota.
- */
-
 const CODES: Record<string, string> = {
-  // Subdivisiones británicas (no son alpha-2)
+  // Reino Unido
   england: 'gb-eng',
   scotland: 'gb-sct',
   wales: 'gb-wls',

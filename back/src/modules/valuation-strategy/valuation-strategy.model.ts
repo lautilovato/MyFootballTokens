@@ -2,7 +2,7 @@
  * Validación semántica de la configuración de una estrategia (07-cotizacion FR-012,
  * data-model.md «Reglas de validación»).
  *
- * Utilidad pura (constitución §7): sin decoradores, sin inyección, sin base de datos. Cubre lo
+ * Modelo del dominio (constitución §7): sin decoradores, sin inyección, sin base de datos. Cubre lo
  * que `class-validator` no expresa sobre el DTO —al menos un peso positivo por perfil, a lo
  * sumo 4 decimales— y vuelve a chequear el resto, para que la regla no dependa de que el DTO
  * esté bien decorado.

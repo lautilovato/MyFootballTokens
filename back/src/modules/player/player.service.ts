@@ -3,13 +3,15 @@ import { Inject, Injectable, NotFoundException } from '@nestjs/common';
 import { PinoLoggerService } from '../../shared/logging/pino-logger.service';
 import { GetPlayersFilterDto } from './dto/get-players-filter.dto';
 import { PlayerCardDto, PlayerDetailDto, PlayersPageDto } from './dto/player-response.dto';
+import {
+  CURRENT_SEASON_KEY,
+  PLAYERS_LIST_VERSION_KEY,
+  filterLogFields,
+  pageMeta,
+  playersListCacheKey,
+  resolvePagination,
+} from './player.model';
 import { PlayerRepository } from './player.repository';
-
-/** Clave del contador que versiona el espacio de claves del listado (research #8). */
-export const PLAYERS_LIST_VERSION_KEY = 'players:list:version';
-
-/** Clave de la temporada vigente, cacheada para no repetir el MAX(season) en cada petición. */
-const CURRENT_SEASON_KEY = 'players:current-season';
 
 @Injectable()
 export class PlayerService {
@@ -20,15 +22,14 @@ export class PlayerService {
   ) {}
 
   async findAll(filter: GetPlayersFilterDto): Promise<PlayersPageDto> {
-    const page = filter.page ?? 1;
-    const limit = filter.limit ?? 20;
+    const { page, limit } = resolvePagination(filter);
     const version = await this.getListVersion();
-    const cacheKey = this.buildCacheKey(filter, page, limit, version);
+    const cacheKey = playersListCacheKey(filter, page, limit, version);
 
     const cached = await this.cache.get<PlayersPageDto>(cacheKey);
     if (cached) {
       this.logger.event('PlayerService', 'players queried', {
-        ...this.logFilters(filter),
+        ...filterLogFields(filter),
         page,
         limit,
         cacheHit: true,
@@ -41,18 +42,13 @@ export class PlayerService {
 
     const result: PlayersPageDto = {
       data: rows.map((row) => PlayerCardDto.fromEntity(row)),
-      meta: {
-        total,
-        page,
-        limit,
-        totalPages: Math.ceil(total / limit),
-      },
+      meta: pageMeta(total, page, limit),
     };
 
     await this.cache.set(cacheKey, result);
 
     this.logger.event('PlayerService', 'players queried', {
-      ...this.logFilters(filter),
+      ...filterLogFields(filter),
       page,
       limit,
       season,
@@ -81,14 +77,9 @@ export class PlayerService {
     return PlayerDetailDto.fromEntity(row);
   }
 
-  /**
-   * Invalida el espacio entero de claves del listado incrementando su versión (research #8).
-   * Es O(1): las entradas viejas quedan inalcanzables al instante y expiran solas por TTL,
-   * sin recorrer el keyspace de Redis. La llaman los procesos que cambian el catálogo.
-   */
+  
   async invalidateListCache(): Promise<void> {
-    const current = (await this.cache.get<number>(PLAYERS_LIST_VERSION_KEY)) ?? 0;
-    // TTL 0 = sin expiración: el contador debe sobrevivir al TTL de las entradas que versiona.
+    const current = await this.getListVersion();
     await this.cache.set(PLAYERS_LIST_VERSION_KEY, current + 1, 0);
     await this.cache.del(CURRENT_SEASON_KEY);
 
@@ -97,11 +88,6 @@ export class PlayerService {
     });
   }
 
-  /**
-   * Cartas de varios jugadores, con el mismo mapeo que el listado: OVR, rareza, club, imagen y
-   * cotización vigente (08-sobres research #13). Usarlo en el inventario y en las aperturas
-   * garantiza que la rareza coincida con la home (FR-069). Sin caché: los ids cambian por usuario.
-   */
   async findCardsByIds(ids: string[]): Promise<Map<string, PlayerCardDto>> {
     const season = await this.getCurrentSeason();
     const rows = await this.playerRepository.findManyByIds(ids, season);
@@ -121,44 +107,5 @@ export class PlayerService {
       await this.cache.set(CURRENT_SEASON_KEY, season);
     }
     return season;
-  }
-
-  private buildCacheKey(
-    filter: GetPlayersFilterDto,
-    page: number,
-    limit: number,
-    version: number,
-  ): string {
-    // Los arreglos se ordenan para que ?position=FW&position=MF y ?position=MF&position=FW
-    // compartan entrada: son la misma consulta.
-    const sorted = (values?: string[]) => (values ? [...values].sort((a, b) => a.localeCompare(b)) : null);
-
-    return `players:list:v${version}:${JSON.stringify({
-      league: sorted(filter.league),
-      team: sorted(filter.team),
-      position: sorted(filter.position),
-      rarity: sorted(filter.rarity),
-      minValue: filter.minValue ?? null,
-      maxValue: filter.maxValue ?? null,
-      minOvr: filter.minOvr ?? null,
-      maxOvr: filter.maxOvr ?? null,
-      search: filter.search?.trim().toLowerCase() ?? null,
-      page,
-      limit,
-    })}`;
-  }
-
-  private logFilters(filter: GetPlayersFilterDto): Record<string, unknown> {
-    return {
-      league: filter.league ?? null,
-      team: filter.team ?? null,
-      position: filter.position ?? null,
-      rarity: filter.rarity ?? null,
-      minValue: filter.minValue ?? null,
-      maxValue: filter.maxValue ?? null,
-      minOvr: filter.minOvr ?? null,
-      maxOvr: filter.maxOvr ?? null,
-      hasSearch: Boolean(filter.search),
-    };
   }
 }

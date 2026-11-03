@@ -5,7 +5,7 @@ import { EntityManager } from '@mikro-orm/postgresql';
 import request from 'supertest';
 import { AppModule } from '../src/app.module';
 import { User } from '../src/infrastructure/database/entities/user.entity';
-import { rarityOfReputation } from '../src/modules/packs/packs.service';
+import { rarityOfReputation } from '../src/modules/packs/packs.model';
 import {
   DEFAULT_PLAYERS,
   cleanAll,

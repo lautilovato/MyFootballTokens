@@ -1,14 +1,18 @@
 /**
- * Configuración de los tipos de sobre (08-sobres FR-008, FR-044 a FR-046, research #11).
+ * Modelo de los sobres (08-sobres): la configuración de los tipos (FR-008, FR-044 a FR-046,
+ * research #11), la rareza de cada carta, el catálogo en vivo y los errores de dominio.
  *
- * Utilidad pura: sin NestJS, sin inyección, sin base de datos (constitución §7, excepción de
- * utilidades puras). La lee y valida `PacksService` al arrancar; con una configuración inválida
- * la aplicación no arranca.
+ * Funciones puras: sin NestJS, sin inyección, sin base de datos (constitución §7, modelo del
+ * dominio). `PacksService` lee y valida la configuración al arrancar; con una configuración
+ * inválida la aplicación no arranca. El armado de un lote vive aparte, en `pack-stock-planner.ts`:
+ * es un algoritmo cerrado, no una regla suelta.
  *
  * `PACK_TYPES_CONFIG` es un JSON opcional con los cuatro tipos completos. Sin la variable rigen
  * los valores por defecto de la spec (Assumptions).
  */
-import type { Rarity } from '../player/rarity';
+import { ovrFromReputation, rarityFromOvr } from '../player/player.model';
+import type { Rarity } from '../player/player.model';
+import type { PackTypeInfoDto } from './dto/pack-catalog-response.dto';
 
 /** De menor a mayor: el orden en que rige la monotonía de FR-009. */
 export const PACK_TYPES = ['common', 'rare', 'epic', 'legendary'] as const;
@@ -199,4 +203,72 @@ function isPositiveInteger(value: unknown): value is number {
 
 function isNonNegativeNumber(value: unknown): value is number {
   return typeof value === 'number' && Number.isFinite(value) && value >= 0;
+}
+
+// ── Rareza de las cartas ─────────────────────────────────────────────────────────────────────
+
+/** Rareza de un jugador según su reputación: la misma regla que la home (FR-016, FR-069). */
+export function rarityOfReputation(reputation: number | null): Rarity {
+  return rarityFromOvr(ovrFromReputation(reputation));
+}
+
+// ── Errores de dominio ───────────────────────────────────────────────────────────────────────
+
+export const PACK_ERRORS = {
+  typeNotFound: { code: 'PACK_TYPE_NOT_FOUND', message: 'El tipo de sobre no existe' },
+  notAvailable: { code: 'PACKS_NOT_AVAILABLE', message: 'Todavía no hay sobres disponibles' },
+  soldOut: { code: 'PACK_SOLD_OUT', message: 'No quedan sobres de ese tipo' },
+  insufficientCredits: { code: 'INSUFFICIENT_CREDITS', message: 'El saldo no alcanza para abrir este sobre' },
+} as const;
+
+// ── Catálogo y stock ─────────────────────────────────────────────────────────────────────────
+
+/** Contador que versiona la caché del catálogo (research #9). */
+export const PACKS_STOCK_VERSION_KEY = 'packs:stock-version';
+
+/** Sincronización del stock cada 15 minutos si `PACKS_STOCK_CRON` no dice otra cosa. */
+export const DEFAULT_STOCK_CRON = '*/15 * * * *';
+
+/** Clave de caché del catálogo, dentro del espacio de la versión vigente (research #9). */
+export function catalogCacheKey(version: number): string {
+  return `packs:types:v${version}`;
+}
+
+/**
+ * Tipos de sobre con precio, cartas, stock y probabilidades en vivo (FR-010): la proporción de
+ * cada rareza entre las cartas de los sobres sin abrir. Un tipo agotado no tiene probabilidades.
+ */
+export function catalogTypes(
+  config: PacksConfig,
+  remaining: Record<PackTypeKey, number>,
+  cards: Record<PackTypeKey, Record<Rarity, number>>,
+): PackTypeInfoDto[] {
+  return PACK_TYPES.map((type) => {
+    const total = RARITY_ORDER.reduce((sum, r) => sum + cards[type][r], 0);
+    return {
+      type,
+      price: config[type].price,
+      cards: config[type].cards,
+      remaining: remaining[type],
+      probabilities:
+        remaining[type] === 0 || total === 0
+          ? null
+          : {
+              common: cards[type].common / total,
+              rare: cards[type].rare / total,
+              epic: cards[type].epic / total,
+              legendary: cards[type].legendary / total,
+            },
+    };
+  });
+}
+
+/** Parámetros del lote: los que rigen para los sobres que se generan ahora (FR-046). */
+export function batchParams(config: PacksConfig): Record<string, unknown> {
+  return Object.fromEntries(
+    PACK_TYPES.map((t) => [
+      t,
+      { cards: config[t].cards, probabilities: config[t].probabilities, share: config[t].share },
+    ]),
+  );
 }

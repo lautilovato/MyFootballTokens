@@ -2,20 +2,14 @@ import { ApiProperty } from '@nestjs/swagger';
 import { Player, PlayerPosition } from '../../../infrastructure/database/entities/player.entity';
 import { PlayerSeasonStats } from '../../../infrastructure/database/entities/player-season-stats.entity';
 import { nationalityCode } from '../nationality-code';
-import { ovrFromReputation } from '../ovr';
-import { rarityFromOvr } from '../rarity';
-import type { Rarity } from '../rarity';
-import { priceMovement } from '../price-movement';
-
-/**
- * Oferta de tokens. Constantes, no persistidas: cada jugador tiene 100 tokens (constitución §5).
- *
- * Sigue siendo dato de presentación: la home muestra la emisión como maqueta hasta que una
- * feature posterior la conecte a los tokens reales de 08-sobres (Assumptions, «Fuera de
- * alcance»).
- */
-export const TOKEN_SUPPLY_TOTAL = 100;
-export const TOKEN_SUPPLY_MINTED = 100;
+import {
+  TOKEN_SUPPLY_MINTED,
+  TOKEN_SUPPLY_TOTAL,
+  ovrFromReputation,
+  priceMovement,
+  rarityFromOvr,
+} from '../player.model';
+import type { Rarity } from '../player.model';
 
 class ClubDto {
   @ApiProperty({ example: 'Manchester City' })

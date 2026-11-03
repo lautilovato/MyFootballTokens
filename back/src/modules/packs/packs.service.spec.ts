@@ -1,5 +1,4 @@
 import { PacksService } from './packs.service';
-import { parseInitialCredits } from '../credits/credits.service';
 
 /**
  * 08-sobres FR-045, research #11: con una configuración inválida la aplicación no arranca, y el
@@ -33,14 +32,5 @@ describe('arranque con configuración inválida', () => {
   it('un JSON malformado también impide iniciar', () => {
     process.env.PACK_TYPES_CONFIG = '{ roto';
     expect(() => packsService().onModuleInit()).toThrow(/no es un JSON válido/);
-  });
-
-  it.each(['0', '-5', '10.5', 'mucho'])('INITIAL_CREDITS=%s impide iniciar CreditsModule', (value) => {
-    expect(() => parseInitialCredits(value)).toThrow(/INITIAL_CREDITS tiene que ser un entero positivo/);
-  });
-
-  it('INITIAL_CREDITS ausente usa 2000', () => {
-    expect(parseInitialCredits(undefined)).toBe(2000);
-    expect(parseInitialCredits('3500')).toBe(3500);
   });
 });

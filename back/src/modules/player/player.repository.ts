@@ -5,34 +5,17 @@ import { PlayerSeasonStats } from '../../infrastructure/database/entities/player
 import { Token, TokenStatus } from '../../infrastructure/database/entities/token.entity';
 import { GetPlayersFilterDto } from './dto/get-players-filter.dto';
 import { PlayerWithStats } from './dto/player-response.dto';
-import { OVR_MAX } from './ovr';
-import { PRICE_HISTORY_POINTS } from './price-movement';
-import { reputationRangesForRarities } from './rarity';
+import { OVR_MAX, PRICE_HISTORY_POINTS, reputationRangesForRarities } from './player.model';
 
-/** Fragmento de SQL parametrizado que se suma al WHERE del listado. */
 interface SqlCondition {
   sql: string;
   params: unknown[];
 }
 
-/**
- * Los filtros por OVR y por rareza comparan contra `player.world_reputation`: el OVR es la
- * reputación cargada (08-sobres FR-067, research #12), así que no hace falta traducirlos a
- * rangos de rating como en 06-home. El índice `player_world_reputation_index` los sostiene.
- *
- * La pertenencia a la temporada vigente se expresa como subconsulta sobre
- * `player_season_stats` en lugar de un JOIN: un jugador con estadísticas de más de una
- * temporada multiplicaría filas en un JOIN y rompería el conteo y el LIMIT.
- */
 @Injectable()
 export class PlayerRepository {
   constructor(private readonly em: EntityManager) {}
 
-  /**
-   * Temporada vigente: el máximo lexicográfico de `season`, que para el formato "2025-2026"
-   * coincide con el orden cronológico (research #2). Derivarla de los datos evita el modo de
-   * falla de una variable de entorno desactualizada.
-   */
   async findCurrentSeason(): Promise<string | null> {
     const [row] = await this.em.execute<{ season: string | null }[]>(
       'select max("season") as season from "player_season_stats"',
@@ -46,9 +29,6 @@ export class PlayerRepository {
   ): Promise<[PlayerWithStats[], number]> {
     const page = filter.page ?? 1;
     const limit = filter.limit ?? 20;
-
-    // El listado solo muestra jugadores con estadísticas de la temporada vigente: sin ellas la
-    // carta no tiene OVR ni métricas. Sin temporada cargada, entonces, no hay nadie que listar.
     if (season === null) return [[], 0];
 
     const qb = this.em
@@ -60,9 +40,6 @@ export class PlayerRepository {
         'exists (select 1 from "player_season_stats" "s0" where "s0"."player_id" = "p"."id" and "s0"."season" = ?)',
         [season],
       )
-      // El Market muestra solo jugadores con alguna carta a la venta (08-sobres FR-070): una
-      // publicación activa, de un usuario o de la plataforma (09-mercado FR-026, research #8).
-      // Mientras no exista ninguna —el mercado arranca vacío—, el listado está vacío.
       .andWhere(
         `exists (select 1 from "listing" "ls" where "ls"."player_id" = "p"."id" and "ls"."status" = 'activa')`,
         [],
@@ -77,8 +54,6 @@ export class PlayerRepository {
     if (filter.league?.length) {
       qb.andWhere({ 'l.name': { $in: filter.league } });
     }
-    // `base_value` es decimal: MikroORM lo tipa como string, pero la comparación debe ser
-    // numérica. Va como SQL para que Postgres compare el valor y no su representación.
     if (filter.minValue !== undefined) {
       qb.andWhere('"p"."base_value" >= ?', [filter.minValue]);
     }
@@ -86,7 +61,6 @@ export class PlayerRepository {
       qb.andWhere('"p"."base_value" <= ?', [filter.maxValue]);
     }
     if (filter.search) {
-      // El índice funcional de la migración usa esta misma función (research #4).
       qb.andWhere(
         'public.immutable_unaccent("p"."full_name") ilike public.immutable_unaccent(?)',
         [`%${filter.search}%`],
@@ -114,16 +88,11 @@ export class PlayerRepository {
     return { ...row, inCirculation: await this.countInCirculation(id) };
   }
 
-  /** Mismo criterio que el ranking y `cards.inCirculation` del panel de administración: tokens de usuarios. */
   private async countInCirculation(playerId: string): Promise<number> {
     return this.em.count(Token, { player: playerId, status: TokenStatus.OWNED });
   }
 
-  /**
-   * Página de jugadores por id, con las mismas estadísticas y series de precios que el listado.
-   * Alimenta las cartas del inventario y de las aperturas (08-sobres research #13). Los ids
-   * inexistentes simplemente no aparecen.
-   */
+ 
   async findManyByIds(ids: string[], season: string | null): Promise<PlayerWithStats[]> {
     if (ids.length === 0) return [];
     const players = await this.em
@@ -132,14 +101,6 @@ export class PlayerRepository {
     return this.attachStats(players, season);
   }
 
-  /**
-   * Traduce los filtros de OVR y rareza a condiciones sobre `player.world_reputation` (FR-067).
-   *
-   * - Con un filtro de OVR activo, los jugadores sin reputación quedan afuera (FR-068): la
-   *   comparación contra NULL nunca es verdadera.
-   * - `maxOvr = 99` incluye la reputación 100, que se presenta como OVR 99.
-   * - La rareza `common` incluye a los jugadores sin reputación (FR-068).
-   */
   private buildReputationConditions(filter: GetPlayersFilterDto): SqlCondition[] {
     const conditionsOut: SqlCondition[] = [];
 
@@ -176,11 +137,7 @@ export class PlayerRepository {
     return conditionsOut;
   }
 
-  /**
-   * Trae las estadísticas de la temporada vigente para los jugadores de la página. Va en una
-   * consulta aparte —y no en el JOIN del listado— para que la paginación cuente jugadores y
-   * no filas, sin importar cuántas temporadas tenga cada jugador cargadas.
-   */
+  
   private async attachStats(
     players: Player[],
     season: string | null,
@@ -191,7 +148,6 @@ export class PlayerRepository {
     const priceSeries = await this.findPriceSeries(playerIds);
     const forSale = await this.findActiveListings(playerIds);
 
-    // Sin temporada cargada no hay estadísticas, pero un jugador cotizado sigue teniendo precios.
     const stats =
       season === null
         ? []
@@ -210,12 +166,7 @@ export class PlayerRepository {
     }));
   }
 
-  /**
-   * Cartas a la venta de cada jugador de la página (09-mercado FR-026): sus publicaciones activas,
-   * de usuarios y de la plataforma, y el número de la más antigua, la primera de la lista del
-   * detalle (15-numero-de-carta FR-003). Una consulta para toda la página, por el mismo motivo que
-   * las estadísticas; la sostiene `listing_player_active_index`.
-   */
+  
   private async findActiveListings(playerIds: string[]): Promise<Map<string, { count: number; firstSerial: number }>> {
     const rows = await this.em.execute<{ player_id: string; count: number; first_serial: number }[]>(
       `select l."player_id", count(*)::int as "count",
@@ -229,11 +180,7 @@ export class PlayerRepository {
     return new Map(rows.map((row) => [row.player_id, { count: Number(row.count), firstSerial: Number(row.first_serial) }]));
   }
 
-  /**
-   * Precios de las últimas `PRICE_HISTORY_POINTS` cotizaciones de cada jugador, del más viejo al
-   * más nuevo, en UNA consulta para toda la página. Va aparte del listado por el mismo motivo que
-   * las estadísticas: un JOIN multiplicaría filas y rompería el conteo y el LIMIT.
-   */
+  
   private async findPriceSeries(playerIds: string[]): Promise<Map<string, number[]>> {
     const series = new Map<string, number[]>();
     if (playerIds.length === 0) return series;

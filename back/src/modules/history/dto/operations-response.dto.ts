@@ -3,7 +3,7 @@ import { PackType } from '../../../infrastructure/database/entities/pack.entity'
 import { PlayerCardDto } from '../../player/dto/player-response.dto';
 import { PageMetaDto } from '../../quotes/dto/page-meta.dto';
 import { StrategyRefDto } from '../../quotes/dto/quote-run-response.dto';
-import type { HistoryKind } from '../history-filter';
+import type { HistoryKind } from '../history.model';
 
 /** La cotización que fijó el precio de una compra o venta, con su estrategia y versión (FR-015). */
 export class OperationQuoteDto {

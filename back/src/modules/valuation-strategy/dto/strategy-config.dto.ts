@@ -10,7 +10,7 @@ import {
   Min,
   ValidateNested,
 } from 'class-validator';
-import { WEIGHT_MAX, WEIGHT_MIN } from '../strategy-config.rules';
+import { WEIGHT_MAX, WEIGHT_MIN } from '../valuation-strategy.model';
 
 /**
  * Un peso por métrica del catálogo; una métrica ausente vale 0. Con `forbidNonWhitelisted`, una

@@ -1,4 +1,4 @@
-import { StrategyConfigInput, validateStrategyConfig } from './strategy-config.rules';
+import { StrategyConfigInput, validateStrategyConfig } from './valuation-strategy.model';
 
 // Configuración de prestigio sembrada por la migración (data-model.md «Valores sembrados»).
 function seededPrestige(): StrategyConfigInput {

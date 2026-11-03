@@ -1,10 +1,9 @@
 import { Injectable } from '@nestjs/common';
 import { IsolationLevel } from '@mikro-orm/core';
 import { EntityManager } from '@mikro-orm/postgresql';
-import { raritySqlCase } from '../player/rarity';
-import { bucketUnit, fillBuckets, todayIn, type ActivityBucket, type AdminPeriod, type BucketUnit } from './admin-period';
+import { raritySqlCase } from '../player/player.model';
+import { bucketUnit, fillBuckets, todayIn, type ActivityBucket, type AdminPeriod, type BucketUnit } from './admin.model';
 
-/** Todo lo que se lee de la base en una carga del panel, antes de armar el DTO. */
 export interface AdminSnapshot {
   users: { registered: number; new: number; active: number };
   tokensByStatus: Record<string, number>;
@@ -27,7 +26,6 @@ type Tx = Pick<EntityManager, 'execute'>;
 const toMap = (rows: { key: string; n: number | string }[]): Record<string, number> =>
   Object.fromEntries(rows.map((row) => [row.key, Number(row.n)]));
 
-/** Restringe `column` al período, con los días en la zona del administrador (research #7). */
 function inPeriod(column: string, period: AdminPeriod): { sql: string; params: string[] } {
   if (!period.from || !period.to) return { sql: 'true', params: [] };
   return {
@@ -36,10 +34,6 @@ function inPeriod(column: string, period: AdminPeriod): { sql: string; params: s
   };
 }
 
-/**
- * Agregados del panel (11-admin-panel). Lee las tablas con SQL propio, como `history`: las
- * métricas cruzan todos los dominios. Nunca escribe (FR-030).
- */
 @Injectable()
 export class AdminRepository {
   constructor(private readonly em: EntityManager) {}
@@ -59,7 +53,6 @@ export class AdminRepository {
     );
   }
 
-  /** Aperturas y ventas por tramo. «Todo» arranca en la primera operación registrada. */
   private async loadActivity(tx: Tx, period: AdminPeriod): Promise<AdminSnapshot['activity']> {
     const { timezone } = period;
     const from = period.from ?? (await this.loadFirstActivityDay(tx, timezone));

@@ -1,8 +1,19 @@
-import { bucketStart, bucketUnit, fillBuckets, isValidDay, todayIn, validatePeriod } from './admin-period';
+import {
+  bucketStart,
+  bucketUnit,
+  cardsOf,
+  fillBuckets,
+  isValidDay,
+  metricsCacheKey,
+  packsOf,
+  reconciliationOf,
+  todayIn,
+  validatePeriod,
+} from './admin.model';
 
 const NOW = new Date('2026-10-31T12:00:00Z');
 
-describe('admin-period', () => {
+describe('período del panel', () => {
   describe('isValidDay', () => {
     it.each(['2026-10-31', '2024-02-29'])('acepta %s', (day) => {
       expect(isValidDay(day)).toBe(true);
@@ -88,5 +99,61 @@ describe('admin-period', () => {
       const starts = fillBuckets('2025-11-15', '2026-02-01', 'month', []).map((b) => b.start);
       expect(starts).toEqual(['2025-11-01', '2025-12-01', '2026-01-01', '2026-02-01']);
     });
+  });
+});
+
+// FR-022 a FR-025 — métricas armadas desde lo que se leyó de la base.
+describe('métricas del panel', () => {
+  const tokensByStatus = { de_usuario: 60, en_sobre: 30, reservado: 4, en_venta_plataforma: 6 };
+
+  it('cardsOf suma los tokens emitidos y separa cada estado', () => {
+    expect(cardsOf({ tokensByStatus, listed: 5 })).toEqual({
+      issued: 100,
+      inCirculation: 60,
+      inPacks: 30,
+      reserved: 4,
+      platformSale: 6,
+      listed: 5,
+    });
+  });
+
+  it('packsOf informa los cuatro tipos aunque falten en la lectura, y marca los agotados', () => {
+    const packs = packsOf({ packsRemaining: { common: 3, rare: 0 }, packsOpened: { common: 7 } });
+    expect(packs.byType.map((row) => row.type)).toEqual(['common', 'rare', 'epic', 'legendary']);
+    expect(packs.byType[0]).toEqual({ type: 'common', remaining: 3, opened: 7, soldOut: false });
+    expect(packs.byType[1].soldOut).toBe(true);
+    expect(packs.remaining).toBe(3);
+    expect(packs.opened).toBe(7);
+  });
+
+  it('la conciliación da ok cuando cartas y créditos cierran', () => {
+    const result = reconciliationOf({
+      tokensByStatus,
+      listed: 0,
+      playersWithoutFullEmission: 0,
+      creditsAllTime: { issued: 5000, collected: 1200 },
+      creditsInCirculation: 3800,
+    });
+    expect(result.cards).toEqual({ ok: true, difference: 0, affectedPlayers: 0 });
+    expect(result.credits).toEqual({ ok: true, expected: 3800, actual: 3800, difference: 0 });
+  });
+
+  it('la conciliación informa la diferencia sin corregirla (FR-025)', () => {
+    const result = reconciliationOf({
+      tokensByStatus: { ...tokensByStatus, quemado: 2 },
+      listed: 0,
+      playersWithoutFullEmission: 1,
+      creditsAllTime: { issued: 5000, collected: 1200 },
+      creditsInCirculation: 3700,
+    });
+    expect(result.cards).toEqual({ ok: false, difference: 2, affectedPlayers: 1 });
+    expect(result.credits).toEqual({ ok: false, expected: 3800, actual: 3700, difference: 100 });
+  });
+
+  it('la clave de caché distingue período y zona, y «Todo» tiene la suya', () => {
+    expect(metricsCacheKey({ from: null, to: null, timezone: 'UTC' })).toBe('admin:metrics:all:all:UTC');
+    expect(metricsCacheKey({ from: '2026-10-01', to: '2026-10-31', timezone: 'America/Argentina/Buenos_Aires' })).toBe(
+      'admin:metrics:2026-10-01:2026-10-31:America/Argentina/Buenos_Aires',
+    );
   });
 });

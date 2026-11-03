@@ -32,10 +32,13 @@ import {
   DEFAULT_HISTORY_PAGE_SIZE,
   DEFAULT_RUNS_PAGE_SIZE,
   NO_SEASON_DATA,
+  QUOTES_VERSION_KEY,
   RUN_IN_PROGRESS,
+  currentQuoteCacheKey,
   dedupeReputationItems,
   describeError,
   hasSeasonData,
+  isBeyondFutureMargin,
   parseHistoryRange,
   partitionReputationOutcome,
   planSchedule,
@@ -46,19 +49,6 @@ import { QuotesRepository } from './quotes.repository';
 import { calculateQuotes } from './score-calculator';
 
 const LOG_CONTEXT = 'QuotesService';
-
-/**
- * Margen del instante consultado hacia el futuro (10-historial-operaciones FR-031, research #4): el
- * final de «hoy» en la zona horaria del usuario puede estar hasta 24 horas por delante del reloj
- * del servidor, y ese pedido es legítimo. Más allá de eso, la fecha es futura y se rechaza.
- */
-const MAX_FUTURE_MS = 24 * 60 * 60 * 1000;
-
-/**
- * Contador que versiona el espacio de claves de la cotización actual (research #11). Cada
- * corrida confirmada lo incrementa y todas las entradas viejas quedan inalcanzables al instante.
- */
-export const QUOTES_VERSION_KEY = 'quotes:version';
 
 /** Nombre del job en `SchedulerRegistry`. */
 export const QUOTES_CRON_JOB_NAME = 'quotes-weekly-recalculation';
@@ -226,7 +216,7 @@ export class QuotesService implements OnModuleInit, OnApplicationBootstrap {
    */
   async getCurrent(playerId: string): Promise<CurrentQuoteResponseDto> {
     const version = (await this.cacheGet<number>(QUOTES_VERSION_KEY)) ?? 0;
-    const cacheKey = `quotes:current:v${version}:${playerId}`;
+    const cacheKey = currentQuoteCacheKey(version, playerId);
 
     const cached = await this.cacheGet<CurrentQuoteResponseDto>(cacheKey);
     if (cached) return cached;
@@ -251,7 +241,7 @@ export class QuotesService implements OnModuleInit, OnApplicationBootstrap {
    */
   async getAt(playerId: string, query: QuoteAtQueryDto): Promise<QuoteAtResponseDto> {
     const at = new Date(query.at);
-    if (at.getTime() > Date.now() + MAX_FUTURE_MS) {
+    if (isBeyondFutureMargin(at)) {
       throw new BadRequestException('at must not be in the future');
     }
 

@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { EntityManager } from '@mikro-orm/postgresql';
-import { raritySqlCase } from '../player/rarity';
+import { raritySqlCase } from '../player/player.model';
 import type { TokenEventRow } from './dto/token-history-response.dto';
 
 /** Tokens por jugador (constitución §5, FR-029). */

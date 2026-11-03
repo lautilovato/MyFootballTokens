@@ -1,9 +1,9 @@
 import { randomInt, randomUUID } from 'node:crypto';
 import { Injectable } from '@nestjs/common';
 import { EntityManager } from '@mikro-orm/postgresql';
-import type { Rarity } from '../player/rarity';
-import { raritySqlCase } from '../player/rarity';
-import { PACK_TYPES, PackTypeKey, RARITY_ORDER } from './pack-config.rules';
+import type { Rarity } from '../player/player.model';
+import { raritySqlCase } from '../player/player.model';
+import { PACK_TYPES, PackTypeKey, RARITY_ORDER } from './packs.model';
 import type { PlannedBatch } from './pack-stock-planner';
 
 /** Clave fija del advisory lock de la generación de lotes (research #6). */

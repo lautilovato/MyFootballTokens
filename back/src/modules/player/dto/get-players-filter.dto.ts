@@ -17,10 +17,7 @@ import {
   ValidatorConstraintInterface,
 } from 'class-validator';
 import { PlayerPosition } from '../../../infrastructure/database/entities/player.entity';
-import { OVR_MAX } from '../ovr';
-import { Rarity } from '../rarity';
-
-export const RARITIES: Rarity[] = ['legendary', 'epic', 'rare', 'common'];
+import { OVR_MAX, RARITIES, Rarity } from '../player.model';
 
 /**
  * Los parámetros repetibles llegan como string cuando aparecen una sola vez

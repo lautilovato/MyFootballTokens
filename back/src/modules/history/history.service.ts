@@ -4,7 +4,7 @@ import { PlayerService } from '../player/player.service';
 import { PageMetaDto } from '../quotes/dto/page-meta.dto';
 import { DEFAULT_HISTORY_PAGE_SIZE, OperationsHistoryQueryDto } from './dto/operations-query.dto';
 import { OperationEntryDto, OperationsHistoryPageDto } from './dto/operations-response.dto';
-import { kindsFor } from './history-filter';
+import { kindsFor } from './history.model';
 import { HistoryRepository } from './history.repository';
 import type { HistoryRow, QuoteRef } from './history.repository';
 

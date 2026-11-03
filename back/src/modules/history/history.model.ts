@@ -1,7 +1,7 @@
 /**
  * Tipos de entrada del historial y su filtro (10-historial-operaciones FR-004, FR-009).
  *
- * Utilidad pura, sin framework ni base de datos (constitución §7): se prueba sin levantar nada.
+ * Modelo del dominio, sin framework ni base de datos (constitución §7): se prueba sin levantar nada.
  */
 
 /** `sobre` y `compra` son cartas adquiridas; `venta` es una carta vendida. */

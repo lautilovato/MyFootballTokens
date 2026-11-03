@@ -1,12 +1,16 @@
 import {
   DEFAULT_PACK_CONFIG,
   PACK_TYPES,
+  batchParams,
   canSumTo,
+  catalogCacheKey,
+  catalogTypes,
   isPackType,
   parsePacksConfig,
+  rarityOfReputation,
   topShare,
   validatePacksConfig,
-} from './pack-config.rules';
+} from './packs.model';
 
 function withType(type: string, patch: Record<string, unknown>) {
   const base = JSON.parse(JSON.stringify(DEFAULT_PACK_CONFIG)) as Record<string, Record<string, unknown>>;
@@ -14,7 +18,7 @@ function withType(type: string, patch: Record<string, unknown>) {
   return base;
 }
 
-describe('pack-config.rules', () => {
+describe('configuración de los tipos de sobre', () => {
   describe('valores por defecto', () => {
     it('son válidos y quedan normalizados', () => {
       const result = parsePacksConfig({});
@@ -137,5 +141,64 @@ describe('pack-config.rules', () => {
     expect(isPackType('epic')).toBe(true);
     expect(isPackType('mega')).toBe(false);
     expect(isPackType(5)).toBe(false);
+  });
+});
+
+// FR-016, FR-069 — la rareza de una carta es la de la home.
+describe('rarityOfReputation', () => {
+  it('aplica los cortes del OVR sobre la reputación', () => {
+    expect(rarityOfReputation(95)).toBe('legendary');
+    expect(rarityOfReputation(82)).toBe('epic');
+    expect(rarityOfReputation(70)).toBe('rare');
+    expect(rarityOfReputation(40)).toBe('common');
+  });
+
+  it('sin reputación cargada la carta es common (FR-068)', () => {
+    expect(rarityOfReputation(null)).toBe('common');
+  });
+});
+
+// FR-010, research #9 — catálogo en vivo.
+describe('catálogo', () => {
+  const zero = { common: 0, rare: 0, epic: 0, legendary: 0 };
+  const remaining = { common: 2, rare: 0, epic: 1, legendary: 1 };
+  const cards = {
+    common: { common: 4, rare: 2, epic: 0, legendary: 0 },
+    rare: { ...zero },
+    epic: { common: 1, rare: 1, epic: 2, legendary: 1 },
+    legendary: { ...zero },
+  };
+
+  it('informa los cuatro tipos con precio y cartas de la configuración', () => {
+    const types = catalogTypes(DEFAULT_PACK_CONFIG, remaining, cards);
+    expect(types.map((t) => t.type)).toEqual([...PACK_TYPES]);
+    expect(types[0]).toMatchObject({ price: 100, cards: 3, remaining: 2 });
+  });
+
+  it('las probabilidades son la proporción de cada rareza entre las cartas sin abrir', () => {
+    const [common, , epic] = catalogTypes(DEFAULT_PACK_CONFIG, remaining, cards);
+    expect(common.probabilities).toEqual({ common: 4 / 6, rare: 2 / 6, epic: 0, legendary: 0 });
+    expect(epic.probabilities).toEqual({ common: 0.2, rare: 0.2, epic: 0.4, legendary: 0.2 });
+  });
+
+  it('un tipo agotado, o sin cartas contadas, no tiene probabilidades', () => {
+    const types = catalogTypes(DEFAULT_PACK_CONFIG, remaining, cards);
+    expect(types[1].probabilities).toBeNull();
+    expect(types[3].probabilities).toBeNull();
+  });
+
+  it('la clave de caché cambia con la versión del stock', () => {
+    expect(catalogCacheKey(3)).toBe('packs:types:v3');
+  });
+
+  it('los parámetros del lote son cartas, probabilidades y participación de cada tipo (FR-046)', () => {
+    const params = batchParams(DEFAULT_PACK_CONFIG) as Record<string, Record<string, unknown>>;
+    expect(Object.keys(params)).toEqual([...PACK_TYPES]);
+    expect(params.common).toEqual({
+      cards: DEFAULT_PACK_CONFIG.common.cards,
+      probabilities: DEFAULT_PACK_CONFIG.common.probabilities,
+      share: DEFAULT_PACK_CONFIG.common.share,
+    });
+    expect(params.common).not.toHaveProperty('price');
   });
 });

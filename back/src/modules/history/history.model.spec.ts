@@ -1,5 +1,5 @@
-import { kindsFor } from './history-filter';
-import type { HistoryType } from './history-filter';
+import { kindsFor } from './history.model';
+import type { HistoryType } from './history.model';
 
 describe('kindsFor', () => {
   it('"all" incluye sobres, compras y ventas', () => {

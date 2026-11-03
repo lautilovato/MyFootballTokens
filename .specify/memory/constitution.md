@@ -1,5 +1,36 @@
 <!--
 SYNC IMPACT REPORT
+Version change: 4.2.0 -> 4.3.0
+Rationale: MINOR bump - ampliacion material de la seccion 7: se reconoce `<nombre-dominio>.model.ts`
+como archivo opcional del modulo de dominio para la logica pura del dominio. No se elimina ni
+redefine nada de forma incompatible: los 5 elementos obligatorios no cambian y la excepcion de
+utilidades puras sigue vigente. Disparado por /speckit-constitution tras el refactor del modulo
+player. Formaliza un patron que ya existia: quotes/quotes.model.ts (refactor 4b07e71) y
+player/player.model.ts (unifico ovr.ts, rarity.ts y price-movement.ts y saco la logica pura de
+player.service.ts), que hasta ahora se apoyaban en la excepcion de utilidades puras aunque esa
+excepcion decia no ser "una capa nueva".
+Modified principles:
+  - 7. Estructura de Directorios y Arquitectura / Backend - nuevo bloque "Modelo del dominio
+    (opcional)": un unico `<nombre-dominio>.model.ts` por dominio, sin NestJS, sin inyeccion, sin
+    base de datos ni cache, con su propio .model.spec.ts; el service delega en el las decisiones
+    puras; otros modulos pueden importar sus funciones, tipos y constantes; se aclara que no es
+    una entidad de MikroORM.
+  - 7. Excepcion de utilidades puras - se acota a archivos de proposito puntual (matching de
+    nombres, tablas de traduccion de datos externos); las reglas del dominio van al modelo.
+    Deja de ser "la unica desviacion" de la palabra "exactamente": ahora son dos.
+Added sections: none (bloque nuevo dentro de la seccion 7)
+Removed sections: none
+Deferred placeholders / TODOs: none
+Impact on dependent artifacts:
+  - back/src/modules/quotes/quotes.model.ts y back/src/modules/player/player.model.ts: ya cumplen.
+  - Utilidades puras existentes (p. ej. player-images/player-image-matcher.ts,
+    player/nationality-code.ts, packs/pack-stock-planner.ts, packs/pack-config.rules.ts): siguen
+    permitidas. Migrarlas a un modelo es opcional y no es obligatorio para cumplir.
+  - Specs 06-home, 08-sobres y 09-mercado (plan, research, tasks): citan ovr.ts, rarity.ts y
+    price-movement.ts, hoy unificados en player.model.ts. Por convencion del proyecto no se editan.
+  - Templates: none checked by this command (see Scope Guard).
+
+PREVIOUS AMENDMENT (4.2.0)
 Version change: 4.1.0 -> 4.2.0
 Rationale: MINOR bump - ampliacion explicita de la lista cerrada del stack de Frontend (seccion
 2), como esa lista exige, y aclaracion de la seccion 5. No se elimina ni redefine nada de forma
@@ -333,13 +364,33 @@ ingesta o batch). En ese caso el controller expone al menos un endpoint de dispa
 proceso, reusable luego por un scheduler u otro consumidor interno — no se omite el archivo ni
 se invoca el service directamente desde fuera del módulo.
 
+**Modelo del dominio (opcional):** la carpeta de un dominio puede incluir, además de los 5
+elementos de arriba, un único `<nombre-dominio>.model.ts` con la lógica pura del dominio: reglas,
+derivaciones, cálculos y constantes que el service orquesta (por ejemplo, el OVR y la rareza de
+la carta en `player.model.ts`, o el plan del scheduler en `quotes.model.ts`).
+*   MUST cumplir las mismas restricciones que las utilidades puras: sin decoradores de NestJS, sin
+    inyección de dependencias, sin acceso a base de datos ni a la caché.
+*   MUST tener su propio `<nombre-dominio>.model.spec.ts`, ejecutable sin levantar el framework
+    ni una base de datos.
+*   Cuando existe, el service delega en él las decisiones puras y se limita a orquestar
+    repositorio, caché, logs y errores HTTP. No se duplica en el service una regla que ya vive en
+    el modelo.
+*   Otros módulos MAY importar sus funciones, tipos y constantes (por ejemplo, la regla de rareza
+    que usan sobres, mercado e inventario). Es la vía para compartir una regla de dominio sin
+    copiarla.
+*   No es una entidad: "modelo" acá nombra la lógica de dominio, no un modelo de MikroORM. Las
+    entidades siguen exclusivamente en `/infrastructure/database/entities/` (ver Capa de
+    Infraestructura).
+
 **Excepción — utilidades puras sin framework:** la carpeta de un dominio puede incluir, además
-de los 5 elementos de arriba, archivos planos de utilidad pura: sin decoradores de NestJS, sin
+de los elementos de arriba, archivos planos de utilidad pura: sin decoradores de NestJS, sin
 inyección de dependencias, sin acceso a base de datos. Se permiten únicamente cuando la lógica
-que contienen debe ser testeable sin levantar el framework ni una base de datos real (por
-ejemplo, un algoritmo de comparación/matching de nombres). Estos archivos no son una capa nueva
-ni reemplazan ninguno de los 5 elementos obligatorios — son la única desviación permitida de la
-palabra "exactamente" de arriba.
+que contienen debe ser testeable sin levantar el framework ni una base de datos real y tiene un
+propósito acotado que no conviene mezclar con el modelo (por ejemplo, un algoritmo de
+comparación/matching de nombres o una tabla de traducción de un dato externo). Las reglas del
+dominio van en `<nombre-dominio>.model.ts`, no en utilidades sueltas. Estos archivos no son una
+capa nueva ni reemplazan ninguno de los 5 elementos obligatorios. Junto con el modelo, son las
+únicas desviaciones permitidas de la palabra "exactamente" de arriba.
 
 **Capa de Adapters:**
 La capa "Adapters (APIs externas)" de la sección 3 vive en una ruta propia, hermana de
@@ -387,4 +438,4 @@ datos que el backend expone en sus respuestas.
 *   Toda revisión de código (Pull Request) debe verificar el cumplimiento de esta constitución antes de ser aprobada.
 *   Cualquier excepción o complejidad que se aparte de estas reglas debe justificarse explícitamente en la spec o plan correspondiente.
 
-**Versión**: 4.2.0 | **Ratificada**: 2026-08-29 | **Última Enmienda**: 2026-10-31
+**Versión**: 4.3.0 | **Ratificada**: 2026-08-29 | **Última Enmienda**: 2026-11-03
