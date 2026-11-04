@@ -23,15 +23,23 @@ export interface ApiPlayerCard {
   rarity: Rarity;
   club: { name: string; crestUrl: string | null };
   nationality: { name: string | null; code: string | null };
+  /** Ilustración cartoon (PNG con fondo transparente). Nulo si todavía no se encontró. */
+  imageUrl: string | null;
   /** Nulo —no cero— cuando no hay estadísticas: "sin dato" es distinto de un cero real. */
   goals: number | null;
   assists: number | null;
+  /** Precio de la última cotización del jugador, en créditos. 0 si nunca fue cotizado. */
   marketValue: number;
-  /** SIMULADO mientras no exista el motor de cotizaciones. */
+  /** Variación de la última cotización respecto de la anterior (%). 0 con menos de dos cotizaciones. */
   changePct: number;
+  /** SIMULADO: la emisión por jugador todavía no sale de un módulo de tokens. */
   supply: { minted: number; total: number };
-  /** SIMULADO. 30 puntos, del más viejo al más nuevo. */
+  /** Precios de las últimas cotizaciones (hasta 30), del más viejo al más nuevo. Vacío si nunca cotizó. */
   priceHistory: number[];
+  /** Cartas del jugador a la venta: publicaciones activas de usuarios y de la plataforma (09-mercado FR-026). */
+  forSaleCount: number;
+  /** Número de carta de su publicación más antigua; nulo sin cartas a la venta (15-numero-de-carta). */
+  firstListedSerial: number | null;
 }
 
 export interface ApiPlayerDetail extends ApiPlayerCard {
@@ -45,6 +53,8 @@ export interface ApiPlayerDetail extends ApiPlayerCard {
   dribbles: number | null;
   tackles: number | null;
   rating: number | null;
+  /** Cartas del jugador en poder de usuarios, a la venta o no (15-numero-de-carta FR-005). */
+  inCirculation: number;
 }
 
 export interface PlayersPage {

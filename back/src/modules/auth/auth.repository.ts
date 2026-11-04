@@ -11,6 +11,14 @@ export function normalizeEmail(email: string): string {
 export class AuthRepository {
   constructor(private readonly em: EntityManager) {}
 
+  /**
+   * Corre `work` en una transacción. Los repositorios que usan el `EntityManager` inyectado
+   * —este y el de créditos— se suman a ella (08-sobres research #3).
+   */
+  async inTransaction<T>(work: () => Promise<T>): Promise<T> {
+    return this.em.transactional(() => work());
+  }
+
   async findByEmail(email: string): Promise<User | null> {
     return this.em.findOne(User, { email: normalizeEmail(email) });
   }
@@ -31,6 +39,9 @@ export class AuthRepository {
       email: normalizeEmail(email),
       username,
       passwordHash,
+      // El saldo inicial no se asigna acá: lo acredita CreditsService con su movimiento de
+      // entrega inicial, en la misma transacción del registro (08-sobres FR-001).
+      credits: 0,
       createdAt: new Date(),
     });
     try {

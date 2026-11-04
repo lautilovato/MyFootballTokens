@@ -6,12 +6,15 @@ import { NormalizedStanding, WhoScoredAdapter } from '../src/adapters/who-scored
 import { WhoScoredBlockedException } from '../src/adapters/who-scored/who-scored.client';
 import { League } from '../src/infrastructure/database/entities/league.entity';
 import { Player } from '../src/infrastructure/database/entities/player.entity';
+import { PlayerQuote } from '../src/infrastructure/database/entities/player-quote.entity';
+import { QuoteRun } from '../src/infrastructure/database/entities/quote-run.entity';
 import { PlayerMatchStats } from '../src/infrastructure/database/entities/player-match-stats.entity';
 import { PlayerSeasonStats } from '../src/infrastructure/database/entities/player-season-stats.entity';
 import { Team } from '../src/infrastructure/database/entities/team.entity';
 import { WhoScoredUnmatchedPlayer } from '../src/infrastructure/database/entities/who-scored-unmatched-player.entity';
 import { WhoScoredUnmatchedTeam } from '../src/infrastructure/database/entities/who-scored-unmatched-team.entity';
 import { TeamWhoScoredMatchingService } from '../src/modules/team-whoscored-matching/team-whoscored-matching.service';
+import { cleanPacksData } from './support/clean-database';
 
 /** Fixture determinístico: reemplaza al WhoScoredAdapter real (ver quickstart.md, Escenarios 1-4). */
 class FakeWhoScoredAdapter {
@@ -69,6 +72,7 @@ describe('TeamWhoScoredMatching (e2e)', () => {
   });
 
   async function cleanDatabase() {
+    await cleanPacksData(em);
     // Orden FK-safe completo (no solo lo que este archivo crea): ingestion.e2e-spec.ts no
     // limpia después de su último test, así que puede haber Player/stats colgando de
     // corridas anteriores en la misma base de test compartida entre archivos e2e.
@@ -76,6 +80,9 @@ describe('TeamWhoScoredMatching (e2e)', () => {
     await em.nativeDelete(WhoScoredUnmatchedPlayer, {});
     await em.nativeDelete(PlayerMatchStats, {});
     await em.nativeDelete(PlayerSeasonStats, {});
+    // 07-cotizacion: las cotizaciones referencian al jugador; se borran antes.
+    await em.nativeDelete(PlayerQuote, {});
+    await em.nativeDelete(QuoteRun, {});
     await em.nativeDelete(Player, {});
     await em.nativeDelete(Team, {});
     await em.nativeDelete(League, {});

@@ -9,14 +9,12 @@ import { JwtService } from '@nestjs/jwt';
 import * as bcrypt from 'bcrypt';
 import { randomBytes } from 'node:crypto';
 import { User } from '../../infrastructure/database/entities/user.entity';
-import { INVALID_CREDENTIALS_MESSAGE } from '../../shared/auth/auth.constants';
+import { BCRYPT_COST, INVALID_CREDENTIALS_MESSAGE } from '../../shared/auth/auth.constants';
+import { CreditsService } from '../credits/credits.service';
 import { AuthRepository, normalizeEmail } from './auth.repository';
 import { AuthResponseDto, UserPublicDto } from './dto/auth-response.dto';
 import { LoginDto } from './dto/login.dto';
 import { RegisterDto } from './dto/register.dto';
-
-/** Costo fijo, no configurable por entorno: una palanca así solo apunta hacia abajo (research #1). */
-const BCRYPT_COST = 10;
 
 /**
  * Hash descartable contra el que se compara cuando la cuenta no existe.
@@ -29,6 +27,9 @@ const BCRYPT_COST = 10;
  */
 const DUMMY_HASH = bcrypt.hashSync(randomBytes(32).toString('hex'), BCRYPT_COST);
 
+/** Corta la transacción del registro cuando la restricción única rechaza el email. */
+class DuplicateEmailError extends Error {}
+
 @Injectable()
 export class AuthService {
   private readonly logger = new Logger(AuthService.name);
@@ -36,6 +37,7 @@ export class AuthService {
   constructor(
     private readonly authRepository: AuthRepository,
     private readonly jwtService: JwtService,
+    private readonly creditsService: CreditsService,
   ) {}
 
   async register(dto: RegisterDto): Promise<AuthResponseDto> {
@@ -46,12 +48,25 @@ export class AuthService {
     }
 
     const passwordHash = await bcrypt.hash(dto.password, BCRYPT_COST);
-    const user = await this.safely(() =>
-      this.authRepository.create(email, dto.username, passwordHash),
-    );
 
-    // null = la restricción única lo rechazó: registro concurrente con el mismo email.
-    if (!user) throw new ConflictException('Ya existe una cuenta con ese email');
+    // El usuario y su entrega inicial de créditos se crean en una sola transacción: si la
+    // entrega falla, la cuenta no queda creada sin saldo (08-sobres FR-001, research #3).
+    let user: User;
+    try {
+      user = await this.authRepository.inTransaction(async () => {
+        const created = await this.authRepository.create(email, dto.username, passwordHash);
+        // null = la restricción única lo rechazó: registro concurrente con el mismo email.
+        if (!created) throw new DuplicateEmailError();
+        await this.creditsService.grantInitial(created.id);
+        return created;
+      });
+    } catch (error) {
+      if (error instanceof DuplicateEmailError) {
+        throw new ConflictException('Ya existe una cuenta con ese email');
+      }
+      this.logger.error('Falla de persistencia durante una operación de autenticación', error);
+      throw new InternalServerErrorException('Error interno');
+    }
 
     return this.buildResponse(user);
   }
@@ -77,6 +92,7 @@ export class AuthService {
       id: user.id,
       email: user.email,
       username: user.username,
+      role: user.role,
     };
     return { accessToken: this.jwtService.sign(payload), user: publicUser };
   }

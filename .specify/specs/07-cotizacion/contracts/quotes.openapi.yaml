@@ -1,0 +1,396 @@
+openapi: 3.0.3
+info:
+  title: Cotización de Jugadores (07-cotizacion)
+  version: 1.0.0
+  description: >
+    Recálculo de score y cotización, consulta de cotización actual e historial, estrategias
+    de valuación versionadas y reputación mundial. Los endpoints administrativos usan la
+    clave `x-api-key` (05-auth); las consultas usan sesión JWT. Los guards van por ruta.
+
+tags:
+  - name: Quotes
+  - name: ValuationStrategies
+
+components:
+  securitySchemes:
+    bearerAuth: { type: http, scheme: bearer, bearerFormat: JWT }
+    adminApiKey: { type: apiKey, in: header, name: x-api-key }
+
+  responses:
+    Unauthorized: { description: Credencial ausente o inválida }
+    BadRequest:
+      description: Entrada inválida (ValidationPipe con whitelist + forbidNonWhitelisted)
+      content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } }
+    PlayerNotFound:
+      description: El jugador no existe
+      content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } }
+
+  schemas:
+    Error:
+      type: object
+      required: [statusCode, message]
+      properties:
+        statusCode: { type: integer }
+        code: { type: string, description: 'Código estable, por ejemplo RUN_IN_PROGRESS' }
+        message: { oneOf: [{ type: string }, { type: array, items: { type: string } }] }
+
+    Metric:
+      type: string
+      enum: [goals, assists, shots, keyPasses, dribbles, tackles, rating, absence, worldReputation]
+
+    Position:
+      type: string
+      enum: [GK, DF, MF, FW]
+
+    Weights:
+      type: object
+      description: Peso por métrica en [-1, 1]; una métrica ausente vale 0.
+      additionalProperties: false
+      properties:
+        goals: { type: number, minimum: -1, maximum: 1 }
+        assists: { type: number, minimum: -1, maximum: 1 }
+        shots: { type: number, minimum: -1, maximum: 1 }
+        keyPasses: { type: number, minimum: -1, maximum: 1 }
+        dribbles: { type: number, minimum: -1, maximum: 1 }
+        tackles: { type: number, minimum: -1, maximum: 1 }
+        rating: { type: number, minimum: -1, maximum: 1 }
+        absence: { type: number, minimum: -1, maximum: 1 }
+        worldReputation: { type: number, minimum: -1, maximum: 1 }
+
+    StrategyConfig:
+      type: object
+      required: [weights, baseValue, scaleFactor, minPrice, defaultReputation]
+      properties:
+        weights:
+          type: object
+          required: [general]
+          properties:
+            general: { $ref: '#/components/schemas/Weights' }
+            byPosition:
+              type: object
+              additionalProperties: false
+              properties:
+                GK: { $ref: '#/components/schemas/Weights' }
+                DF: { $ref: '#/components/schemas/Weights' }
+                MF: { $ref: '#/components/schemas/Weights' }
+                FW: { $ref: '#/components/schemas/Weights' }
+        baseValue: { type: integer, minimum: 0, example: 100 }
+        scaleFactor: { type: integer, minimum: 1, example: 900 }
+        minPrice: { type: integer, minimum: 1, example: 10 }
+        defaultReputation: { type: integer, minimum: 0, maximum: 100, example: 20 }
+
+    StrategyVersion:
+      allOf:
+        - $ref: '#/components/schemas/StrategyConfig'
+        - type: object
+          required: [version, createdAt]
+          properties:
+            version: { type: integer, minimum: 1 }
+            createdAt: { type: string, format: date-time }
+
+    Strategy:
+      type: object
+      required: [key, name, description, active, currentVersion]
+      properties:
+        key: { type: string, example: performance }
+        name: { type: string, example: Performance }
+        description: { type: string }
+        active: { type: boolean }
+        currentVersion: { $ref: '#/components/schemas/StrategyVersion' }
+
+    BreakdownItem:
+      type: object
+      required: [metric, raw, normalized, weight, contribution]
+      properties:
+        metric: { $ref: '#/components/schemas/Metric' }
+        raw: { type: number, nullable: true, description: Valor del jugador antes de normalizar }
+        normalized: { type: number, minimum: 0, description: '0 = percentil 5 del lote, 1 = percentil 95. Sin tope superior.' }
+        weight: { type: number }
+        contribution: { type: number, description: 'weight × normalized / positiveWeightSum' }
+
+    Quote:
+      type: object
+      required: [price, score, rawScore, calculatedAt, origin, strategy, season]
+      properties:
+        price: { type: integer, description: Créditos enteros, example: 724 }
+        score: { type: number, minimum: 0, example: 0.693, description: 'Sin tope superior; el piso es 0' }
+        rawScore: { type: number, description: 'Suma de contribuciones antes del piso en 0' }
+        calculatedAt: { type: string, format: date-time }
+        origin: { type: string, enum: [AUTOMATIC, MANUAL] }
+        season: { type: string, example: '2025-2026' }
+        strategy:
+          type: object
+          required: [key, version]
+          properties:
+            key: { type: string }
+            version: { type: integer }
+        positionProfile: { type: string, enum: [GENERAL, GK, DF, MF, FW] }
+        usedDefaultReputation: { type: boolean }
+        missingMatchesPlayed: { type: boolean }
+
+    CurrentQuote:
+      type: object
+      required: [playerId, quoted, quote]
+      properties:
+        playerId: { type: string, format: uuid }
+        quoted:
+          type: boolean
+          description: false si el jugador existe pero nunca fue cotizado (no hay precio por defecto)
+        quote:
+          nullable: true
+          allOf:
+            - $ref: '#/components/schemas/Quote'
+            - type: object
+              required: [breakdown, positiveWeightSum, previousPrice, changePct]
+              properties:
+                breakdown: { type: array, items: { $ref: '#/components/schemas/BreakdownItem' } }
+                positiveWeightSum: { type: number }
+                previousPrice: { type: integer, nullable: true }
+                changePct: { type: number, nullable: true, description: 'Un decimal; null sin cotización previa' }
+
+    QuoteHistoryPage:
+      type: object
+      required: [data, meta]
+      properties:
+        data: { type: array, items: { $ref: '#/components/schemas/Quote' } }
+        meta: { $ref: '#/components/schemas/PageMeta' }
+
+    PageMeta:
+      type: object
+      required: [total, page, limit, totalPages]
+      properties:
+        total: { type: integer }
+        page: { type: integer }
+        limit: { type: integer }
+        totalPages: { type: integer }
+
+    QuoteRun:
+      type: object
+      required: [id, trigger, status, startedAt, quotedCount, skippedCount, correlationId]
+      properties:
+        id: { type: string, format: uuid }
+        trigger: { type: string, enum: [AUTOMATIC, MANUAL] }
+        status: { type: string, enum: [RUNNING, COMPLETED, FAILED, SKIPPED] }
+        strategy:
+          type: object
+          nullable: true
+          properties:
+            key: { type: string }
+            version: { type: integer }
+        season: { type: string, nullable: true }
+        startedAt: { type: string, format: date-time }
+        finishedAt: { type: string, format: date-time, nullable: true }
+        quotedCount: { type: integer }
+        skippedCount: { type: integer }
+        failureReason: { type: string, nullable: true }
+        correlationId: { type: string }
+
+    ReputationItem:
+      type: object
+      required: [playerId, worldReputation]
+      properties:
+        playerId: { type: string, format: uuid }
+        worldReputation:
+          type: integer
+          minimum: 0
+          maximum: 100
+          nullable: true
+          description: null borra la reputación (vuelve a usarse la de por defecto)
+
+paths:
+  /quotes/recalculate:
+    post:
+      tags: [Quotes]
+      summary: Dispara un recálculo completo (contrato fijado por el enunciado)
+      security: [{ adminApiKey: [] }]
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                strategyKey:
+                  type: string
+                  description: Estrategia puntual para esta corrida; por defecto, la activa (FR-028)
+      responses:
+        '200':
+          description: Corrida completada
+          content: { application/json: { schema: { $ref: '#/components/schemas/QuoteRun' } } }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404':
+          description: strategyKey inexistente
+          content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } }
+        '409':
+          description: RUN_IN_PROGRESS, NO_ACTIVE_STRATEGY o NO_SEASON_DATA
+          content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } }
+        '500':
+          description: La corrida falló; quedó registrada como FAILED y no se persistió ninguna cotización
+
+  /quotes/runs:
+    get:
+      tags: [Quotes]
+      summary: Lista las corridas, de la más reciente a la más vieja (FR-029)
+      security: [{ adminApiKey: [] }]
+      parameters:
+        - { name: page, in: query, schema: { type: integer, minimum: 1, default: 1 } }
+        - { name: limit, in: query, schema: { type: integer, minimum: 1, maximum: 100, default: 20 } }
+      responses:
+        '200':
+          description: Página de corridas
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data: { type: array, items: { $ref: '#/components/schemas/QuoteRun' } }
+                  meta: { $ref: '#/components/schemas/PageMeta' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+
+  /quotes/players/{playerId}/current:
+    get:
+      tags: [Quotes]
+      summary: Cotización actual con score, desglose y variación (FR-019)
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: playerId, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        '200':
+          description: Cotización actual, o quoted=false si el jugador nunca fue cotizado
+          content: { application/json: { schema: { $ref: '#/components/schemas/CurrentQuote' } } }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/PlayerNotFound' }
+
+  /quotes/players/{playerId}/history:
+    get:
+      tags: [Quotes]
+      summary: Historial cronológico (más viejo primero) de score y precio (FR-020)
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: playerId, in: path, required: true, schema: { type: string, format: uuid } }
+        - { name: from, in: query, schema: { type: string, format: date-time } }
+        - { name: to, in: query, schema: { type: string, format: date-time }, description: 'Debe ser ≥ from' }
+        - { name: page, in: query, schema: { type: integer, minimum: 1, default: 1 } }
+        - { name: limit, in: query, schema: { type: integer, minimum: 1, maximum: 200, default: 50 } }
+      responses:
+        '200':
+          description: Página del historial
+          content: { application/json: { schema: { $ref: '#/components/schemas/QuoteHistoryPage' } } }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/PlayerNotFound' }
+
+  /valuation-strategies:
+    get:
+      tags: [ValuationStrategies]
+      summary: Lista las estrategias con su versión vigente y estado (FR-015)
+      security: [{ bearerAuth: [] }]
+      responses:
+        '200':
+          description: Estrategias
+          content: { application/json: { schema: { type: array, items: { $ref: '#/components/schemas/Strategy' } } } }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+
+  /valuation-strategies/{key}/versions:
+    get:
+      tags: [ValuationStrategies]
+      summary: Todas las versiones de una estrategia, de la más nueva a la más vieja
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: key, in: path, required: true, schema: { type: string } }
+      responses:
+        '200':
+          description: Versiones
+          content: { application/json: { schema: { type: array, items: { $ref: '#/components/schemas/StrategyVersion' } } } }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { description: Estrategia inexistente }
+    post:
+      tags: [ValuationStrategies]
+      summary: Crea una versión nueva e inmutable con la configuración completa (FR-011, FR-012)
+      security: [{ adminApiKey: [] }]
+      parameters:
+        - { name: key, in: path, required: true, schema: { type: string } }
+      requestBody:
+        required: true
+        content: { application/json: { schema: { $ref: '#/components/schemas/StrategyConfig' } } }
+      responses:
+        '201':
+          description: Versión creada
+          content: { application/json: { schema: { $ref: '#/components/schemas/StrategyVersion' } } }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { description: Estrategia inexistente }
+
+  /valuation-strategies/{key}/activate:
+    post:
+      tags: [ValuationStrategies]
+      summary: Activa la estrategia y desactiva la anterior de forma atómica (FR-013)
+      security: [{ adminApiKey: [] }]
+      parameters:
+        - { name: key, in: path, required: true, schema: { type: string } }
+      responses:
+        '200':
+          description: Estrategia activa
+          content: { application/json: { schema: { $ref: '#/components/schemas/Strategy' } } }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { description: Estrategia inexistente }
+
+  /quotes/reputation/{playerId}:
+    put:
+      tags: [Quotes]
+      summary: Establece la reputación mundial de un jugador (FR-024)
+      security: [{ adminApiKey: [] }]
+      parameters:
+        - { name: playerId, in: path, required: true, schema: { type: string, format: uuid } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [worldReputation]
+              properties:
+                worldReputation: { type: integer, minimum: 0, maximum: 100, nullable: true }
+      responses:
+        '200':
+          description: Reputación actualizada
+          content: { application/json: { schema: { $ref: '#/components/schemas/ReputationItem' } } }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/PlayerNotFound' }
+
+  /quotes/reputation:
+    put:
+      tags: [Quotes]
+      summary: Carga en lote; los inexistentes no abortan al resto (FR-024)
+      security: [{ adminApiKey: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [items]
+              properties:
+                items:
+                  type: array
+                  minItems: 1
+                  maxItems: 1000
+                  items: { $ref: '#/components/schemas/ReputationItem' }
+      responses:
+        '200':
+          description: Resultado por jugador
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [updated, notFound]
+                properties:
+                  updated: { type: array, items: { type: string, format: uuid } }
+                  notFound: { type: array, items: { type: string, format: uuid } }
+        '400':
+          description: Algún ítem tiene formato inválido; se rechaza el lote completo sin efectos (FR-034)
+        '401': { $ref: '#/components/responses/Unauthorized' }

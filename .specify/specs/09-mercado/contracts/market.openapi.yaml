@@ -1,0 +1,350 @@
+openapi: 3.0.3
+
+info:
+  title: Mercado de Jugadores de Fútbol — Mercado de Tokens (Compra y Venta)
+  description: >
+    Contrato de la feature 09-mercado. Cubre publicar y retirar una carta, ver las cartas a la
+    venta de un jugador, comprar una carta y consultar el historial de compras y ventas.
+
+    El precio de una carta es siempre la cotización vigente de su jugador (FR-001, constitución
+    v4.1.0 §5 «Mercado»): ningún pedido lleva un precio a fijar, y la compra solo informa el
+    precio que el comprador aceptó (FR-013). El usuario de toda operación es el de la sesión:
+    ningún endpoint acepta un id de usuario (FR-009, FR-016). Todos los errores usan el esquema
+    `ApiError` (FR-033).
+
+    Cambios en endpoints existentes, todos aditivos:
+    - `GET /players` (el Market, 06-home y 08-sobres FR-070): lista los jugadores con al menos
+      una publicación activa, de usuarios o de la plataforma, y cada carta suma `forSaleCount`
+      (FR-026).
+    - `GET /inventory` (08-sobres): cada token suma `listingId`, nulo si no está a la venta
+      (FR-025).
+    - `GET /tokens/{tokenId}/history` (08-sobres): suma los tipos de evento `retiro_de_venta` y
+      `venta`, y los `referenceType` `listing` y `token_purchase` (FR-023).
+  version: 1.0.0
+
+servers:
+  - url: http://localhost:3000
+
+security:
+  - bearerAuth: []
+
+tags:
+  - name: Market
+
+paths:
+  /market/listings:
+    post:
+      tags: [Market]
+      summary: Pone a la venta una carta propia (FR-003 a FR-005)
+      description: >
+        El precio no se envía: es la cotización vigente del jugador y cambia con ella (FR-002).
+        Validaciones en este orden: sesión, entrada, token propio, publicación activa previa
+        y cotización vigente (research #6).
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/CreateListingRequest' }
+      responses:
+        '201':
+          description: Publicación creada
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Listing' }
+        '401': { $ref: '#/components/responses/Unauthenticated' }
+        '404':
+          description: TOKEN_NOT_FOUND — inexistente o de otro usuario, sin distinguir
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ApiError' }
+        '409':
+          description: TOKEN_ALREADY_LISTED o PRICE_NOT_AVAILABLE
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ApiError' }
+        '422': { $ref: '#/components/responses/ValidationError' }
+        '429': { $ref: '#/components/responses/RateLimited' }
+        '500': { $ref: '#/components/responses/InternalError' }
+
+  /market/listings/{listingId}/withdraw:
+    post:
+      tags: [Market]
+      summary: Retira una publicación activa propia (FR-006, FR-007)
+      parameters:
+        - $ref: '#/components/parameters/ListingId'
+      responses:
+        '200':
+          description: Publicación retirada; la carta sigue en el inventario sin la marca
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Listing' }
+        '401': { $ref: '#/components/responses/Unauthenticated' }
+        '404':
+          description: LISTING_NOT_FOUND — inexistente, de otro usuario o de la plataforma
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ApiError' }
+        '409':
+          description: LISTING_NOT_ACTIVE — ya vendida o retirada
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ApiError' }
+        '422': { $ref: '#/components/responses/ValidationError' }
+        '429': { $ref: '#/components/responses/RateLimited' }
+        '500': { $ref: '#/components/responses/InternalError' }
+
+  /market/players/{playerId}/listings:
+    get:
+      tags: [Market]
+      summary: Cartas a la venta de un jugador, de la publicación más antigua a la más nueva (FR-027)
+      description: >
+        No identifica a los vendedores; `mine` marca las publicaciones del usuario de la sesión,
+        que no se pueden comprar (FR-011).
+      parameters:
+        - name: playerId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/Limit'
+      responses:
+        '200':
+          description: Página de publicaciones activas (lista vacía si no hay ninguna)
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/PlayerListingsPage' }
+        '401': { $ref: '#/components/responses/Unauthenticated' }
+        '404':
+          description: PLAYER_NOT_FOUND
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ApiError' }
+        '422': { $ref: '#/components/responses/ValidationError' }
+
+  /market/purchases:
+    post:
+      tags: [Market]
+      summary: Compra una carta a la venta (FR-010 a FR-017)
+      description: >
+        Una carta por compra. Validaciones en este orden: sesión, entrada, publicación existente,
+        activa, ajena, con cotización, precio vigente no mayor que `acceptedPrice` y saldo
+        (FR-012). Se cobra el precio vigente, que puede ser menor que el aceptado (FR-013).
+        Atómica: ante cualquier error no se cobra ni se transfiere nada (FR-014).
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/PurchaseRequest' }
+      responses:
+        '201':
+          description: Compra completada
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Purchase' }
+        '401': { $ref: '#/components/responses/Unauthenticated' }
+        '404':
+          description: LISTING_NOT_FOUND
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ApiError' }
+        '409':
+          description: LISTING_NOT_ACTIVE, OWN_LISTING, PRICE_NOT_AVAILABLE, PRICE_CHANGED o INSUFFICIENT_CREDITS
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ApiError' }
+        '422': { $ref: '#/components/responses/ValidationError' }
+        '429': { $ref: '#/components/responses/RateLimited' }
+        '500': { $ref: '#/components/responses/InternalError' }
+
+  /market/operations:
+    get:
+      tags: [Market]
+      summary: Compras y ventas del usuario, de la más reciente a la más antigua (FR-029)
+      parameters:
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/Limit'
+      responses:
+        '200':
+          description: Página de operaciones (lista vacía si no tiene ninguna)
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data, meta]
+                properties:
+                  data: { type: array, items: { $ref: '#/components/schemas/Operation' } }
+                  meta: { $ref: '#/components/schemas/PageMeta' }
+        '401': { $ref: '#/components/responses/Unauthenticated' }
+        '422': { $ref: '#/components/responses/ValidationError' }
+
+components:
+  securitySchemes:
+    bearerAuth: { type: http, scheme: bearer, bearerFormat: JWT }
+
+  parameters:
+    ListingId:
+      name: listingId
+      in: path
+      required: true
+      schema: { type: string, format: uuid }
+    Page:
+      name: page
+      in: query
+      schema: { type: integer, minimum: 1, default: 1 }
+    Limit:
+      name: limit
+      in: query
+      schema: { type: integer, minimum: 1, maximum: 100, default: 20 }
+
+  responses:
+    Unauthenticated:
+      description: UNAUTHENTICATED
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ApiError' }
+    ValidationError:
+      description: >
+        VALIDATION_ERROR — incluye un precio en la publicación, un id de usuario en cualquier
+        pedido, un `acceptedPrice` ausente o no entero y una paginación inválida
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ApiError' }
+    RateLimited:
+      description: RATE_LIMITED — demasiados pedidos en poco tiempo (research #11)
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ApiError' }
+    InternalError:
+      description: INTERNAL_ERROR — sin efectos
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ApiError' }
+
+  schemas:
+    ApiError:
+      type: object
+      required: [code, message, correlationId]
+      properties:
+        code:
+          type: string
+          enum:
+            - UNAUTHENTICATED
+            - VALIDATION_ERROR
+            - TOKEN_NOT_FOUND
+            - LISTING_NOT_FOUND
+            - PLAYER_NOT_FOUND
+            - TOKEN_ALREADY_LISTED
+            - LISTING_NOT_ACTIVE
+            - OWN_LISTING
+            - PRICE_NOT_AVAILABLE
+            - PRICE_CHANGED
+            - INSUFFICIENT_CREDITS
+            - RATE_LIMITED
+            - INTERNAL_ERROR
+        message: { type: string, description: 'Mensaje legible, en español' }
+        correlationId: { type: string }
+        details:
+          type: array
+          items: { type: string }
+          description: Solo en VALIDATION_ERROR, un mensaje por campo inválido
+
+    PageMeta:
+      type: object
+      required: [total, page, limit, totalPages]
+      properties:
+        total: { type: integer, minimum: 0 }
+        page: { type: integer, minimum: 1 }
+        limit: { type: integer, minimum: 1 }
+        totalPages: { type: integer, minimum: 0 }
+
+    CreateListingRequest:
+      type: object
+      additionalProperties: false
+      required: [tokenId]
+      properties:
+        tokenId: { type: string, format: uuid }
+
+    Listing:
+      type: object
+      required: [id, tokenId, serial, playerId, status, price, listedAt]
+      properties:
+        id: { type: string, format: uuid }
+        tokenId: { type: string, format: uuid }
+        serial: { type: integer, minimum: 1, maximum: 100 }
+        playerId: { type: string, format: uuid }
+        status: { type: string, enum: [activa, vendida, retirada] }
+        price:
+          type: integer
+          minimum: 1
+          description: Precio vigente del token = cotización vigente del jugador (FR-001)
+        listedAt: { type: string, format: date-time }
+        closedAt: { type: string, format: date-time, nullable: true }
+
+    PlayerListingsPage:
+      type: object
+      required: [playerId, price, data, meta]
+      properties:
+        playerId: { type: string, format: uuid }
+        price:
+          type: integer
+          nullable: true
+          description: Precio de cada carta del jugador = su cotización vigente; nulo si no tiene
+        data:
+          type: array
+          items:
+            type: object
+            required: [listingId, tokenId, serial, mine, listedAt]
+            properties:
+              listingId: { type: string, format: uuid }
+              tokenId: { type: string, format: uuid }
+              serial: { type: integer, minimum: 1, maximum: 100 }
+              mine: { type: boolean, description: Publicación del usuario de la sesión }
+              listedAt: { type: string, format: date-time }
+        meta: { $ref: '#/components/schemas/PageMeta' }
+
+    PurchaseRequest:
+      type: object
+      additionalProperties: false
+      required: [listingId, acceptedPrice]
+      properties:
+        listingId: { type: string, format: uuid }
+        acceptedPrice:
+          type: integer
+          minimum: 1
+          description: Precio que vio y confirmó el comprador (FR-013)
+
+    Purchase:
+      type: object
+      required: [id, listingId, tokenId, serial, playerId, rarity, price, balanceAfter, purchasedAt]
+      properties:
+        id: { type: string, format: uuid }
+        listingId: { type: string, format: uuid }
+        tokenId: { type: string, format: uuid }
+        serial: { type: integer, minimum: 1, maximum: 100 }
+        playerId: { type: string, format: uuid }
+        rarity: { type: string, enum: [common, rare, epic, legendary] }
+        price:
+          type: integer
+          minimum: 1
+          description: Precio cobrado = cotización vigente del jugador en ese instante (FR-017)
+        balanceAfter: { type: integer, minimum: 0 }
+        purchasedAt: { type: string, format: date-time }
+
+    Operation:
+      type: object
+      required: [purchaseId, kind, tokenId, serial, playerId, rarity, price, balanceBefore, balanceAfter, counterparty, at]
+      properties:
+        purchaseId: { type: string, format: uuid }
+        kind: { type: string, enum: [compra, venta] }
+        tokenId: { type: string, format: uuid }
+        serial: { type: integer, minimum: 1, maximum: 100 }
+        playerId: { type: string, format: uuid }
+        rarity: { type: string, enum: [common, rare, epic, legendary] }
+        price: { type: integer, minimum: 1 }
+        balanceBefore: { type: integer, minimum: 0 }
+        balanceAfter: { type: integer, minimum: 0 }
+        counterparty:
+          type: string
+          enum: [plataforma, otro_usuario]
+          description: La contraparte nunca se identifica (FR-029)
+        at: { type: string, format: date-time }

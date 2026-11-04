@@ -13,11 +13,12 @@ function apiPlayer(id: string, name: string): ApiPlayerCard {
     rarity: 'rare',
     club: { name: 'Arsenal FC', crestUrl: null },
     nationality: { name: 'England', code: 'gb-eng' },
+    imageUrl: null,
     goals: 3,
     assists: 2,
     marketValue: 1200,
     changePct: 1.5,
-    supply: { minted: 100, total: 100 },
+    supply: { minted: 100, total: 100 }, forSaleCount: 0, firstListedSerial: null,
     priceHistory: [1100, 1200],
   };
 }
@@ -62,5 +63,26 @@ describe('PlayerGrid', () => {
 
     act(() => items[0].querySelector<HTMLElement>('.pc')!.click());
     expect(onSelect).toHaveBeenCalledWith('a');
+  });
+
+  it('muestra en la carta el número de la primera publicación (15-numero-de-carta FR-003)', () => {
+    act(() => {
+      root.render(
+        <PlayerGrid
+          players={[{ ...apiPlayer('a', 'Bukayo Saka'), firstListedSerial: 82 }, apiPlayer('b', 'Declan Rice')]}
+          selectedId={null}
+          onSelect={vi.fn()}
+        />,
+      );
+    });
+    const rarity = [...container.querySelectorAll('.pc__rarity')].map((el) => el.textContent);
+    expect(rarity).toEqual(['Rare 82/100', 'Rare /100']);
+  });
+
+  it('no muestra cuántas hay a la venta debajo de la carta (15-numero-de-carta)', () => {
+    act(() => {
+      root.render(<PlayerGrid players={[{ ...apiPlayer('a', 'Bukayo Saka'), forSaleCount: 3 }]} selectedId={null} onSelect={vi.fn()} />);
+    });
+    expect(container.textContent).not.toContain('a la venta');
   });
 });

@@ -11,11 +11,14 @@ import {
 import { WhoScoredBlockedException } from '../src/adapters/who-scored/who-scored.client';
 import { League } from '../src/infrastructure/database/entities/league.entity';
 import { Player, PlayerPosition } from '../src/infrastructure/database/entities/player.entity';
+import { PlayerQuote } from '../src/infrastructure/database/entities/player-quote.entity';
+import { QuoteRun } from '../src/infrastructure/database/entities/quote-run.entity';
 import { PlayerMatchStats } from '../src/infrastructure/database/entities/player-match-stats.entity';
 import { PlayerSeasonStats } from '../src/infrastructure/database/entities/player-season-stats.entity';
 import { Team } from '../src/infrastructure/database/entities/team.entity';
 import { WhoScoredUnmatchedPlayer } from '../src/infrastructure/database/entities/who-scored-unmatched-player.entity';
 import { PlayerStatsService } from '../src/modules/player-stats/player-stats.service';
+import { cleanPacksData } from './support/clean-database';
 
 const SEASON_STATS: NormalizedSeasonStats = {
   whoScoredPlayerId: 'ws-1',
@@ -115,9 +118,13 @@ describe('PlayerStats (e2e)', () => {
   });
 
   async function cleanDatabase() {
+    await cleanPacksData(em);
     await em.nativeDelete(PlayerMatchStats, {});
     await em.nativeDelete(PlayerSeasonStats, {});
     await em.nativeDelete(WhoScoredUnmatchedPlayer, {});
+    // 07-cotizacion: las cotizaciones referencian al jugador; se borran antes.
+    await em.nativeDelete(PlayerQuote, {});
+    await em.nativeDelete(QuoteRun, {});
     await em.nativeDelete(Player, {});
     await em.nativeDelete(Team, {});
     await em.nativeDelete(League, {});

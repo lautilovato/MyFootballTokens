@@ -1,0 +1,395 @@
+openapi: 3.0.3
+
+info:
+  title: Mercado de Jugadores de Fútbol — Créditos, Sobres e Inventario
+  description: >
+    Contrato de la feature 08-sobres. Cubre el saldo de créditos, los tipos de sobre, la
+    apertura, el historial de aperturas, el inventario y el historial de un token, más los dos
+    disparos administrativos (entrega inicial y sincronización del stock).
+
+    Todos los errores de estos endpoints usan el esquema `ApiError` (FR-049). El usuario de
+    toda operación es siempre el de la sesión: ningún endpoint acepta un id de usuario
+    (FR-025, FR-047). Los dos endpoints de la etiqueta Admin son los disparos manuales de
+    procesos batch y usan la credencial administrativa, no la sesión (FR-047).
+
+    Cambios en endpoints existentes (06-home), sin cambiar la forma de la respuesta:
+    - en `GET /players` y `GET /players/{id}`, los campos `ovr` y `rarity` pasan a salir de la
+      reputación mundial (FR-067 a FR-069), y los filtros `minOvr`, `maxOvr` y `rarity`
+      comparan contra ella;
+    - `GET /players` (el Market) lista solo jugadores con al menos un token a la venta
+      (FR-070). Mientras no haya ninguno devuelve `data: []` y `total: 0`. `GET /players/{id}`
+      sigue respondiendo por cualquier jugador.
+  version: 1.0.0
+
+servers:
+  - url: http://localhost:3000
+
+security:
+  - bearerAuth: []
+
+tags:
+  - name: Credits
+  - name: Packs
+  - name: Inventory
+  - name: Admin
+
+paths:
+  /credits:
+    get:
+      tags: [Credits]
+      summary: Saldo del usuario de la sesión (FR-003)
+      responses:
+        '200':
+          description: Saldo actual
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/CreditBalance' }
+        '401': { $ref: '#/components/responses/Unauthenticated' }
+
+  /credits/initial-grants:
+    post:
+      tags: [Admin]
+      summary: Entrega la cantidad inicial a los usuarios que todavía no la recibieron (FR-002)
+      description: Idempotente. También corre sola al arrancar la aplicación.
+      security: [{ adminApiKey: [] }]
+      responses:
+        '200':
+          description: Resultado del proceso
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [granted, amount]
+                properties:
+                  granted: { type: integer, description: 'Usuarios que recibieron la entrega en esta ejecución' }
+                  amount: { type: integer, description: 'Cantidad entregada a cada uno' }
+        '401': { $ref: '#/components/responses/Unauthenticated' }
+
+  /packs/types:
+    get:
+      tags: [Packs]
+      summary: Tipos de sobre con precio, cartas, stock y probabilidades en vivo (FR-010)
+      responses:
+        '200':
+          description: Los cuatro tipos, de menor a mayor
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/PackCatalog' }
+        '401': { $ref: '#/components/responses/Unauthenticated' }
+
+  /packs/openings:
+    post:
+      tags: [Packs]
+      summary: Abre un sobre del tipo elegido (FR-018 a FR-027)
+      description: >
+        Validaciones en este orden: sesión, entrada, tipo, sobres generados, stock del tipo y
+        saldo. La apertura es atómica: ante cualquier error no se cobra ni se entrega nada.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [type]
+              additionalProperties: false
+              properties:
+                type:
+                  type: string
+                  minLength: 1
+                  maxLength: 32
+                  description: >
+                    common, rare, epic o legendary. Un valor desconocido responde 404
+                    PACK_TYPE_NOT_FOUND; un valor ausente o no textual, 422 VALIDATION_ERROR.
+      responses:
+        '201':
+          description: Apertura confirmada
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/PackOpening' }
+        '401': { $ref: '#/components/responses/Unauthenticated' }
+        '404':
+          description: PACK_TYPE_NOT_FOUND
+          content: { application/json: { schema: { $ref: '#/components/schemas/ApiError' } } }
+        '409':
+          description: PACKS_NOT_AVAILABLE, PACK_SOLD_OUT o INSUFFICIENT_CREDITS
+          content: { application/json: { schema: { $ref: '#/components/schemas/ApiError' } } }
+        '422': { $ref: '#/components/responses/ValidationError' }
+        '500': { $ref: '#/components/responses/InternalError' }
+    get:
+      tags: [Packs]
+      summary: Historial de aperturas del usuario, de la más reciente a la más antigua (FR-039)
+      parameters:
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/Limit'
+      responses:
+        '200':
+          description: Página de aperturas
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data, meta]
+                properties:
+                  data: { type: array, items: { $ref: '#/components/schemas/PackOpening' } }
+                  meta: { $ref: '#/components/schemas/PageMeta' }
+        '401': { $ref: '#/components/responses/Unauthenticated' }
+        '422': { $ref: '#/components/responses/ValidationError' }
+
+  /packs/stock/sync:
+    post:
+      tags: [Admin]
+      summary: Emite los tokens faltantes y genera un lote con los tokens elegibles (FR-012, FR-029)
+      description: Idempotente. También la disparan el scheduler y cada corrida de cotización.
+      security: [{ adminApiKey: [] }]
+      responses:
+        '200':
+          description: Resultado de la sincronización
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/StockSyncResult' }
+        '401': { $ref: '#/components/responses/Unauthenticated' }
+
+  /inventory:
+    get:
+      tags: [Inventory]
+      summary: Tokens que el usuario posee hoy, agrupados por jugador (FR-033 a FR-035)
+      description: >
+        Ordenado por reputación (OVR) del jugador de mayor a menor y, ante empate, por id del
+        jugador. Pagina jugadores, no tokens.
+      parameters:
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/Limit'
+      responses:
+        '200':
+          description: Página del inventario (lista vacía si no tiene cartas)
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data, meta]
+                properties:
+                  data: { type: array, items: { $ref: '#/components/schemas/InventoryItem' } }
+                  meta: { $ref: '#/components/schemas/PageMeta' }
+        '401': { $ref: '#/components/responses/Unauthenticated' }
+        '422': { $ref: '#/components/responses/ValidationError' }
+
+  /tokens/{tokenId}/history:
+    get:
+      tags: [Inventory]
+      summary: Historial de un token que el usuario posee o poseyó (FR-031)
+      parameters:
+        - name: tokenId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '200':
+          description: Eventos en orden cronológico, desde la emisión
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/TokenHistory' }
+        '401': { $ref: '#/components/responses/Unauthenticated' }
+        '404':
+          description: 'TOKEN_NOT_FOUND (inexistente, ajeno o nunca poseído: no se distingue)'
+          content: { application/json: { schema: { $ref: '#/components/schemas/ApiError' } } }
+        '422': { $ref: '#/components/responses/ValidationError' }
+
+components:
+  securitySchemes:
+    bearerAuth: { type: http, scheme: bearer, bearerFormat: JWT }
+    adminApiKey: { type: apiKey, in: header, name: x-api-key }
+
+  parameters:
+    Page:
+      name: page
+      in: query
+      schema: { type: integer, minimum: 1, default: 1 }
+    Limit:
+      name: limit
+      in: query
+      schema: { type: integer, minimum: 1, maximum: 100, default: 20 }
+
+  responses:
+    Unauthenticated:
+      description: UNAUTHENTICATED — sin sesión o sesión inválida
+      content: { application/json: { schema: { $ref: '#/components/schemas/ApiError' } } }
+    ValidationError:
+      description: VALIDATION_ERROR — entrada inválida, sin efectos
+      content: { application/json: { schema: { $ref: '#/components/schemas/ApiError' } } }
+    InternalError:
+      description: INTERNAL_ERROR — error inesperado, sin efectos
+      content: { application/json: { schema: { $ref: '#/components/schemas/ApiError' } } }
+
+  schemas:
+    ApiError:
+      type: object
+      required: [code, message, correlationId]
+      properties:
+        code:
+          type: string
+          enum:
+            - UNAUTHENTICATED
+            - VALIDATION_ERROR
+            - PACK_TYPE_NOT_FOUND
+            - PACKS_NOT_AVAILABLE
+            - PACK_SOLD_OUT
+            - INSUFFICIENT_CREDITS
+            - TOKEN_NOT_FOUND
+            - INTERNAL_ERROR
+        message: { type: string, description: 'Mensaje legible, en español' }
+        correlationId: { type: string }
+        details:
+          type: array
+          items: { type: string }
+          description: Solo en VALIDATION_ERROR, un mensaje por campo inválido
+
+    PackType:
+      type: string
+      enum: [common, rare, epic, legendary]
+
+    Rarity:
+      type: string
+      enum: [common, rare, epic, legendary]
+
+    RarityProbabilities:
+      type: object
+      description: Proporción de cada rareza entre las cartas de los sobres sin abrir del tipo. Suman 1.
+      required: [common, rare, epic, legendary]
+      properties:
+        common: { type: number, minimum: 0, maximum: 1 }
+        rare: { type: number, minimum: 0, maximum: 1 }
+        epic: { type: number, minimum: 0, maximum: 1 }
+        legendary: { type: number, minimum: 0, maximum: 1 }
+
+    CreditBalance:
+      type: object
+      required: [credits]
+      properties:
+        credits: { type: integer, minimum: 0 }
+
+    PackCatalog:
+      type: object
+      required: [stockGenerated, types]
+      properties:
+        stockGenerated:
+          type: boolean
+          description: Falso si todavía no se generó ningún sobre (la pantalla muestra PACKS_NOT_AVAILABLE).
+        types:
+          type: array
+          minItems: 4
+          maxItems: 4
+          items: { $ref: '#/components/schemas/PackTypeInfo' }
+
+    PackTypeInfo:
+      type: object
+      required: [type, price, cards, remaining, probabilities]
+      properties:
+        type: { $ref: '#/components/schemas/PackType' }
+        price: { type: integer, minimum: 1 }
+        cards: { type: integer, minimum: 1 }
+        remaining: { type: integer, minimum: 0, description: 'Sobres sin abrir del tipo' }
+        probabilities:
+          nullable: true
+          allOf: [{ $ref: '#/components/schemas/RarityProbabilities' }]
+          description: Nulo si el tipo está agotado
+
+    OpeningCard:
+      type: object
+      required: [tokenId, serial, rarity, quotePrice, player]
+      properties:
+        tokenId: { type: string, format: uuid }
+        serial: { type: integer, minimum: 1, maximum: 100 }
+        rarity: { $ref: '#/components/schemas/Rarity' }
+        quotePrice: { type: integer, description: 'Cotización del jugador en el momento cero, en créditos' }
+        player:
+          description: >
+            La carta del jugador tal como la devuelve GET /players (06-home, PlayerCard), con su
+            OVR, rareza y cotización actuales. La rareza y la cotización del momento cero son
+            las de los campos de arriba.
+          $ref: '../../06-home/contracts/home.openapi.yaml#/components/schemas/PlayerCard'
+
+    PackOpening:
+      type: object
+      required: [id, type, price, cardCount, balanceBefore, balanceAfter, openedAt, cards]
+      properties:
+        id: { type: string, format: uuid }
+        type: { $ref: '#/components/schemas/PackType' }
+        price: { type: integer, description: 'Precio efectivamente cobrado' }
+        cardCount: { type: integer }
+        balanceBefore: { type: integer }
+        balanceAfter: { type: integer, description: 'Saldo real después de la apertura' }
+        openedAt: { type: string, format: date-time }
+        cards: { type: array, items: { $ref: '#/components/schemas/OpeningCard' } }
+
+    InventoryItem:
+      type: object
+      required: [player, count, tokens]
+      properties:
+        player:
+          description: La carta del jugador (06-home PlayerCard), con su cotización vigente en `marketValue`.
+          $ref: '../../06-home/contracts/home.openapi.yaml#/components/schemas/PlayerCard'
+        reputation: { type: integer, nullable: true }
+        count: { type: integer, minimum: 1 }
+        tokens:
+          type: array
+          items:
+            type: object
+            required: [id, serial]
+            properties:
+              id: { type: string, format: uuid }
+              serial: { type: integer, minimum: 1, maximum: 100 }
+
+    TokenHistory:
+      type: object
+      required: [tokenId, serial, playerId, events]
+      properties:
+        tokenId: { type: string, format: uuid }
+        serial: { type: integer }
+        playerId: { type: string, format: uuid }
+        events:
+          type: array
+          items:
+            type: object
+            required: [type, at, from, to]
+            properties:
+              type:
+                type: string
+                enum: [emision, entrega_en_sobre, devolucion_a_plataforma, puesta_en_venta]
+                description: Los eventos asignacion_a_sobre son internos y no se muestran.
+              at: { type: string, format: date-time }
+              from: { type: string, enum: [plataforma, yo, otro_usuario], nullable: true }
+              to: { type: string, enum: [plataforma, yo, otro_usuario] }
+              quotePrice: { type: integer, nullable: true }
+              rarity: { allOf: [{ $ref: '#/components/schemas/Rarity' }], nullable: true }
+              operation:
+                type: object
+                nullable: true
+                properties:
+                  type: { type: string, enum: [pack_batch, pack_opening] }
+                  id: { type: string, format: uuid }
+
+    StockSyncResult:
+      type: object
+      required: [emittedTokens, batch]
+      properties:
+        emittedTokens: { type: integer, description: 'Tokens emitidos en esta ejecución' }
+        batch:
+          nullable: true
+          description: Nulo si no había tokens elegibles para un lote nuevo
+          type: object
+          properties:
+            number: { type: integer }
+            tokenCount: { type: integer }
+            packs:
+              type: object
+              additionalProperties: { type: integer }
+              description: Sobres generados por tipo
+
+    PageMeta:
+      type: object
+      required: [total, page, limit, totalPages]
+      properties:
+        total: { type: integer }
+        page: { type: integer }
+        limit: { type: integer }
+        totalPages: { type: integer }

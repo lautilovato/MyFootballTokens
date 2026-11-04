@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 import { JwtModule } from '@nestjs/jwt';
 import type { SignOptions } from 'jsonwebtoken';
 import { AUTH_ENV } from './auth.constants';
+import { AdminGuard } from './admin.guard';
 import { ApiKeyGuard } from './api-key.guard';
 import { JwtAuthGuard } from './jwt-auth.guard';
 
@@ -25,7 +26,7 @@ import { JwtAuthGuard } from './jwt-auth.guard';
       }),
     }),
   ],
-  providers: [JwtAuthGuard, ApiKeyGuard],
-  exports: [JwtModule, JwtAuthGuard, ApiKeyGuard],
+  providers: [JwtAuthGuard, ApiKeyGuard, AdminGuard],
+  exports: [JwtModule, JwtAuthGuard, ApiKeyGuard, AdminGuard],
 })
 export class AuthSharedModule {}

@@ -1,5 +1,6 @@
 import { CacheModule } from '@nestjs/cache-manager';
 import { Module } from '@nestjs/common';
+import { ScheduleModule } from '@nestjs/schedule';
 import { ThrottlerModule } from '@nestjs/throttler';
 import { createObserveModule } from '@nestjs/observe';
 import KeyvRedis from '@keyv/redis';
@@ -11,11 +12,21 @@ import {
   DEFAULT_RATE_LIMIT_TTL_SECONDS,
 } from './shared/auth/auth.constants';
 import { LoggingModule } from './shared/logging/logging.module';
+import { AdminModule } from './modules/admin/admin.module';
 import { AuthModule } from './modules/auth/auth.module';
+import { CreditsModule } from './modules/credits/credits.module';
+import { HistoryModule } from './modules/history/history.module';
+import { MarketModule } from './modules/market/market.module';
+import { PacksModule } from './modules/packs/packs.module';
+import { TokensModule } from './modules/tokens/tokens.module';
 import { IngestionModule } from './modules/ingestion/ingestion.module';
 import { LeagueModule } from './modules/league/league.module';
+import { PlayerImagesModule } from './modules/player-images/player-images.module';
 import { PlayerModule } from './modules/player/player.module';
 import { PlayerStatsModule } from './modules/player-stats/player-stats.module';
+import { QuotesModule } from './modules/quotes/quotes.module';
+import { RankingModule } from './modules/ranking/ranking.module';
+import { ValuationStrategyModule } from './modules/valuation-strategy/valuation-strategy.module';
 import { TeamWhoScoredMatchingModule } from './modules/team-whoscored-matching/team-whoscored-matching.module';
 
 export const { ObserveModule, ObserveInstrument } = createObserveModule();
@@ -35,6 +46,8 @@ const observeImports =
     ...observeImports,
     LoggingModule,
     DatabaseModule,
+    // Job scheduler de la constitución §4: el recálculo semanal de cotizaciones (07-cotizacion).
+    ScheduleModule.forRoot(),
     // Limite de intentos para /auth (FR-013, research #7). Almacenamiento en
     // memoria: correcto mientras haya una sola instancia.
     ThrottlerModule.forRoot([
@@ -58,7 +71,22 @@ const observeImports =
     LeagueModule,
     IngestionModule,
     PlayerStatsModule,
+    PlayerImagesModule,
     TeamWhoScoredMatchingModule,
+    ValuationStrategyModule,
+    QuotesModule,
+    // 08-sobres: créditos, tokens y sobres.
+    CreditsModule,
+    TokensModule,
+    PacksModule,
+    // 09-mercado: publicar, retirar y comprar cartas.
+    MarketModule,
+    // 10-historial-operaciones: cartas adquiridas y vendidas del usuario.
+    HistoryModule,
+    // 11-admin-panel: métricas de la plataforma para administradores.
+    AdminModule,
+    // 13-ranking: los jugadores más caros según la estrategia activa.
+    RankingModule,
   ],
   controllers: [AppController],
   providers: [AppService],

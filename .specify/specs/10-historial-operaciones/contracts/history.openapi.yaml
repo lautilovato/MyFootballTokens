@@ -1,0 +1,318 @@
+openapi: 3.0.3
+
+info:
+  title: Mercado de Jugadores de Fútbol — Historial de Operaciones y Cotización por Fecha
+  description: >
+    Contrato de la feature 10-historial-operaciones. Cubre el historial de cartas adquiridas
+    (por sobre o por compra) y vendidas del usuario, y la consulta de la cotización de un
+    jugador en un instante dado.
+
+    Es una feature de lectura: ningún endpoint crea ni modifica operaciones, movimientos de
+    créditos, eventos de token ni cotizaciones (FR-037). El usuario del historial es siempre el
+    de la sesión: ningún endpoint acepta un id de usuario (FR-012). Los endpoints nuevos usan el
+    esquema de error `ApiError` (FR-036).
+
+    Cambios en endpoints existentes, todos aditivos:
+    - `GET /quotes/players/{playerId}/history` (07-cotizacion FR-020): la referencia de
+      estrategia de cada cotización suma `name`. Su formato de error NO cambia: conserva el 400
+      de 07.
+    - `GET /quotes/players/{playerId}/current` (07-cotizacion FR-019): ídem, `strategy.name`.
+    - `POST /market/purchases` (09-mercado): sin cambios de contrato. Internamente guarda con
+      qué cotización se fijó el precio (plan, research #1).
+  version: 1.0.0
+
+servers:
+  - url: http://localhost:3000
+
+security:
+  - bearerAuth: []
+
+tags:
+  - name: History
+  - name: Quotes
+
+paths:
+  /history/operations:
+    get:
+      tags: [History]
+      summary: Cartas adquiridas y vendidas del usuario, de la más reciente a la más antigua (FR-003 a FR-014)
+      description: >
+        Una entrada por carta. Una apertura de sobre produce una entrada por cada carta que
+        entregó, contiguas y con la misma fecha (clarificación del 2026-10-26). Las cartas de
+        sobre no informan precio, saldos ni cotización (FR-005, FR-015); las compras y ventas
+        informan el precio cobrado, los saldos antes y después y la cotización que fijó el
+        precio, con su estrategia y versión (FR-006, FR-015).
+
+        El total y las páginas cuentan entradas (cartas) y respetan el filtro `type` (FR-009).
+        Orden estable: `at` descendente, después la operación y después el token (FR-008).
+      parameters:
+        - name: type
+          in: query
+          description: >
+            `all` (por defecto): todo. `acquired`: cartas de sobres y compras. `sold`: ventas.
+          schema:
+            type: string
+            enum: [all, acquired, sold]
+            default: all
+        - $ref: '#/components/parameters/Page'
+        - name: limit
+          in: query
+          schema: { type: integer, minimum: 1, maximum: 100, default: 20 }
+      responses:
+        '200':
+          description: Página del historial (lista vacía si el usuario no hizo operaciones)
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/OperationsPage' }
+        '401': { $ref: '#/components/responses/Unauthenticated' }
+        '422': { $ref: '#/components/responses/ValidationError' }
+        '500': { $ref: '#/components/responses/InternalError' }
+
+  /quotes/players/{playerId}/at:
+    get:
+      tags: [Quotes]
+      summary: Cotización vigente de un jugador en un instante (FR-027 a FR-030)
+      description: >
+        Devuelve la última cotización calculada hasta `at` (inclusive). Es siempre una cotización
+        existente del historial: nunca se interpola ni se calcula un precio para la ocasión
+        (FR-029). Para buscar «un día», el cliente envía el instante del final de ese día en su
+        zona horaria (FR-028). Para resaltar la cotización de una operación, envía el instante de
+        la operación.
+
+        Un jugador sin cotización hasta ese instante NO es un error: responde 200 con
+        `quoted=false` y la fecha de la primera cotización (FR-030, 07 FR-018).
+
+        Un `at` más de 24 horas adelante del reloj del servidor se rechaza (FR-031): el margen
+        cubre el final de «hoy» en cualquier zona horaria.
+      parameters:
+        - name: playerId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+        - name: at
+          in: query
+          required: true
+          description: Instante, ISO 8601 con zona horaria
+          schema: { type: string, format: date-time, example: '2026-10-14T02:59:59.999Z' }
+      responses:
+        '200':
+          description: Cotización vigente en `at`, o `quoted=false`
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/QuoteAtResponse' }
+        '401': { $ref: '#/components/responses/Unauthenticated' }
+        '404':
+          description: PLAYER_NOT_FOUND — el jugador no existe
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ApiError' }
+        '422': { $ref: '#/components/responses/ValidationError' }
+        '500': { $ref: '#/components/responses/InternalError' }
+
+  /quotes/players/{playerId}/history:
+    get:
+      tags: [Quotes]
+      summary: Historial de cotizaciones (07-cotizacion FR-020) — se suma strategy.name
+      description: >
+        Sin cambios de comportamiento. El gráfico completo lo recorre de a 200 hasta cubrir
+        `meta.total` (research #5). Conserva el formato de error de 07: un `from`, un `to` o una
+        paginación inválidos responden 400 con el cuerpo por defecto de Nest (research #8).
+      parameters:
+        - name: playerId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+        - name: from
+          in: query
+          schema: { type: string, format: date-time }
+        - name: to
+          in: query
+          schema: { type: string, format: date-time }
+        - $ref: '#/components/parameters/Page'
+        - name: limit
+          in: query
+          schema: { type: integer, minimum: 1, maximum: 200, default: 50 }
+      responses:
+        '200':
+          description: Cotizaciones de la más vieja a la más nueva
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data, meta]
+                properties:
+                  data: { type: array, items: { $ref: '#/components/schemas/Quote' } }
+                  meta: { $ref: '#/components/schemas/PageMeta' }
+        '400':
+          description: Fecha inválida, rango invertido o paginación fuera de límites (formato de 07)
+        '401':
+          description: Sin credencial de sesión válida (formato de 07)
+        '404':
+          description: El jugador no existe (formato de 07)
+
+components:
+  securitySchemes:
+    bearerAuth: { type: http, scheme: bearer, bearerFormat: JWT }
+
+  parameters:
+    Page:
+      name: page
+      in: query
+      schema: { type: integer, minimum: 1, default: 1 }
+
+  responses:
+    Unauthenticated:
+      description: UNAUTHENTICATED — sin sesión o sesión inválida
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ApiError' }
+    ValidationError:
+      description: >
+        VALIDATION_ERROR — `type` desconocido, paginación fuera de límites, `at` ausente, mal
+        formado o a más de 24 horas en el futuro, o un campo no permitido en el pedido (por
+        ejemplo un usuario)
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ApiError' }
+    InternalError:
+      description: INTERNAL_ERROR — error inesperado, sin efectos
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ApiError' }
+
+  schemas:
+    ApiError:
+      type: object
+      required: [code, message, correlationId]
+      properties:
+        code:
+          type: string
+          enum: [UNAUTHENTICATED, VALIDATION_ERROR, PLAYER_NOT_FOUND, INTERNAL_ERROR]
+        message: { type: string }
+        correlationId: { type: string }
+        details:
+          type: array
+          items: { type: string }
+
+    PageMeta:
+      type: object
+      required: [total, page, limit, totalPages]
+      properties:
+        total: { type: integer, minimum: 0 }
+        page: { type: integer, minimum: 1 }
+        limit: { type: integer, minimum: 1 }
+        totalPages: { type: integer, minimum: 0 }
+
+    StrategyRef:
+      type: object
+      required: [key, name, version]
+      properties:
+        key: { type: string, example: performance }
+        name:
+          type: string
+          example: Performance
+          description: Nombre legible de la estrategia (se suma en esta feature)
+        version: { type: integer, minimum: 1, example: 2 }
+
+    Quote:
+      type: object
+      description: Cotización de 07 (sin desglose). Inmutable.
+      required: [price, score, rawScore, calculatedAt, origin, season, strategy, positionProfile, usedDefaultReputation, missingMatchesPlayed]
+      properties:
+        price: { type: integer, minimum: 0, description: Créditos }
+        score: { type: number, minimum: 0 }
+        rawScore: { type: number }
+        calculatedAt: { type: string, format: date-time }
+        origin: { type: string, enum: [AUTOMATIC, MANUAL] }
+        season: { type: string, example: 2025-2026 }
+        strategy: { $ref: '#/components/schemas/StrategyRef' }
+        positionProfile: { type: string, enum: [GENERAL, GK, DF, MF, FW] }
+        usedDefaultReputation: { type: boolean }
+        missingMatchesPlayed: { type: boolean }
+
+    QuoteAtResponse:
+      type: object
+      required: [playerId, at, quoted, quote, firstQuotedAt]
+      properties:
+        playerId: { type: string, format: uuid }
+        at: { type: string, format: date-time, description: El instante consultado, tal como se recibió }
+        quoted:
+          type: boolean
+          description: false si el jugador no tenía cotización hasta `at`
+        quote:
+          nullable: true
+          allOf:
+            - $ref: '#/components/schemas/Quote'
+        firstQuotedAt:
+          type: string
+          format: date-time
+          nullable: true
+          description: >
+            Fecha de la primera cotización del jugador. Solo se informa cuando `quoted` es false;
+            nulo si el jugador nunca fue cotizado.
+
+    OperationQuote:
+      type: object
+      description: >
+        La cotización que fijó el precio de una compra o venta, con la estrategia y versión con
+        las que se calculó (FR-015).
+      required: [id, calculatedAt, strategy]
+      properties:
+        id: { type: string, format: uuid }
+        calculatedAt: { type: string, format: date-time }
+        strategy: { $ref: '#/components/schemas/StrategyRef' }
+
+    OperationEntry:
+      type: object
+      description: >
+        Una carta que el usuario adquirió o vendió. Los campos marcados «solo compra/venta» son
+        nulos en las entradas de sobre.
+      required: [id, kind, at, tokenId, serial, rarity, player, packType, price, balanceBefore, balanceAfter, counterparty, quote]
+      properties:
+        id: { type: string }
+        kind:
+          type: string
+          enum: [sobre, compra, venta]
+          description: >
+            `sobre` y `compra` son «adquiridas» (FR-009); `venta` es «vendida».
+        at: { type: string, format: date-time }
+        tokenId: { type: string, format: uuid }
+        serial: { type: integer, minimum: 1, maximum: 100 }
+        rarity: { type: string, enum: [common, rare, epic, legendary], description: La de ese instante }
+        player:
+          type: object
+          description: Tarjeta del jugador, la misma que devuelven sobres e inventario
+          additionalProperties: true
+        packType:
+          type: string
+          enum: [common, rare, epic, legendary]
+          nullable: true
+          description: Solo sobre
+        price:
+          type: integer
+          nullable: true
+          description: >
+            Solo compra/venta. Es la cotización del jugador en el instante de la operación
+            (09 FR-017). Las cartas de sobre no tienen precio de compra: la interfaz muestra
+            «Primer propietario» (FR-005).
+        balanceBefore: { type: integer, nullable: true, description: Solo compra/venta }
+        balanceAfter: { type: integer, nullable: true, description: Solo compra/venta }
+        counterparty:
+          type: string
+          enum: [plataforma, otro_usuario]
+          nullable: true
+          description: Solo compra/venta. Nunca identifica a la otra parte (FR-007)
+        quote:
+          nullable: true
+          allOf:
+            - $ref: '#/components/schemas/OperationQuote'
+          description: >
+            Solo compra/venta. Nulo si no se puede determinar, en cuyo caso la interfaz dice
+            «estrategia no disponible» (FR-016)
+
+    OperationsPage:
+      type: object
+      required: [data, meta]
+      properties:
+        data: { type: array, items: { $ref: '#/components/schemas/OperationEntry' } }
+        meta: { $ref: '#/components/schemas/PageMeta' }

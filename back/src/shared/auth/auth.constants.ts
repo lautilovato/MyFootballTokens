@@ -21,6 +21,16 @@ export const AUTH_ENV = {
   corsAllowedOrigins: 'CORS_ALLOWED_ORIGINS',
 } as const;
 
+/** Credenciales de la cuenta administradora, que lee el seed (11-admin-panel FR-007). */
+export const ADMIN_SEED_ENV = {
+  email: 'ADMIN_SEED_EMAIL',
+  password: 'ADMIN_SEED_PASSWORD',
+  username: 'ADMIN_SEED_USERNAME',
+} as const;
+
+/** Costo fijo, no configurable por entorno: una palanca así solo apunta hacia abajo (research #1). */
+export const BCRYPT_COST = 10;
+
 /**
  * Sin estas dos la aplicación no debe levantar: un despliegue sin ADMIN_API_KEY
  * dejaría los endpoints administrativos comparando contra undefined.

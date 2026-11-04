@@ -1,6 +1,6 @@
-import { beforeEach, describe, expect, it } from 'vitest';
-import { httpClient } from '../http-client';
-import { clearSession, saveSession } from '../session-storage';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { ADMIN_KEY_HEADER, httpClient, setUnauthorizedHandler } from '../http-client';
+import { clearSession, readToken, saveSession } from '../session-storage';
 
 const USER = { id: 'u1', email: 'ana@example.com', username: 'ana' };
 
@@ -24,5 +24,35 @@ describe('interceptor de peticion', () => {
   it('adjunta Bearer con el token guardado', async () => {
     saveSession('token-abc', USER);
     expect((await buildHeaders()).Authorization).toBe('Bearer token-abc');
+  });
+});
+
+describe('interceptor de respuesta ante un 401', () => {
+  const reject = async (headers: Record<string, string>) => {
+    const handlers = httpClient.interceptors.response as unknown as {
+      handlers: Array<{ rejected: (e: unknown) => Promise<unknown> } | null>;
+    };
+    const error = { response: { status: 401 }, config: { headers } };
+    for (const h of handlers.handlers) if (h) await expect(h.rejected(error)).rejects.toBe(error);
+  };
+
+  beforeEach(() => {
+    saveSession('token-abc', USER);
+    window.history.pushState({}, '', '/login');
+  });
+
+  it('descarta la sesion si la rechazada fue la credencial (FR-022)', async () => {
+    const onUnauthorized = vi.fn();
+    setUnauthorizedHandler(onUnauthorized);
+    await reject({});
+    setUnauthorizedHandler(null);
+
+    expect(readToken()).toBeNull();
+    expect(onUnauthorized).toHaveBeenCalledOnce();
+  });
+
+  it('conserva la sesion si lo rechazado fue la clave administrativa (16-config-estrategia FR-003)', async () => {
+    await reject({ [ADMIN_KEY_HEADER]: 'mal' });
+    expect(readToken()).toBe('token-abc');
   });
 });

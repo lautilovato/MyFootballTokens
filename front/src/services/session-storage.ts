@@ -11,6 +11,8 @@ export interface StoredUser {
   id: string;
   email: string;
   username: string;
+  /** Solo decide qué se muestra; el servidor verifica el rol (11-admin-panel FR-003). */
+  role?: 'user' | 'admin';
 }
 
 export function readToken(): string | null {

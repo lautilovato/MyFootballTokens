@@ -10,11 +10,12 @@ const BASE: ApiPlayerCard = {
   rarity: 'legendary',
   club: { name: 'Manchester City', crestUrl: null },
   nationality: { name: 'Norway', code: 'no' },
+  imageUrl: null,
   goals: 29,
   assists: 5,
   marketValue: 8450,
   changePct: 12.5,
-  supply: { minted: 100, total: 100 },
+  supply: { minted: 100, total: 100 }, forSaleCount: 0, firstListedSerial: null,
   priceHistory: Array.from({ length: 30 }, (_, i) => 8000 + i * 15),
 };
 
@@ -26,7 +27,7 @@ describe('player-card.mapper', () => {
     expect(card.name).toBe('Erling Haaland');
     expect(card.position).toBe('FW');
     expect(card.overall).toBe(86);
-    expect(card.token).toEqual({ rarity: 'legendary', supply: 100, minted: 100 });
+    expect(card.token).toEqual({ rarity: 'legendary', supply: 100 });
     expect(card.price.current).toBe(8450);
     expect(card.price.changePct).toBe(12.5);
     expect(card.price.history).toHaveLength(30);
@@ -47,8 +48,14 @@ describe('player-card.mapper', () => {
     expect(card.club.crestUrl).toBe('https://crests.example/mc.png');
   });
 
-  it('nunca define photoUrl: no hay fotos cargadas y el componente dibuja su silueta', () => {
+  it('deja photoUrl sin definir cuando el jugador no tiene imagen: el componente dibuja su silueta', () => {
     expect(toPlayerCardData(BASE).photoUrl).toBeUndefined();
+  });
+
+  it('pasa la imagen cartoon como photoUrl cuando existe', () => {
+    const imageUrl = 'https://r2.thesportsdb.com/images/media/player/cartoon/abc123.png';
+
+    expect(toPlayerCardData({ ...BASE, imageUrl }).photoUrl).toBe(imageUrl);
   });
 
   it('conserva los 30 puntos de la serie para que el sparkline se dibuje', () => {

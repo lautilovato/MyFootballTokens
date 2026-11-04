@@ -2,38 +2,20 @@ import { Injectable } from '@nestjs/common';
 import { EntityManager } from '@mikro-orm/postgresql';
 import { Player } from '../../infrastructure/database/entities/player.entity';
 import { PlayerSeasonStats } from '../../infrastructure/database/entities/player-season-stats.entity';
+import { Token, TokenStatus } from '../../infrastructure/database/entities/token.entity';
 import { GetPlayersFilterDto } from './dto/get-players-filter.dto';
 import { PlayerWithStats } from './dto/player-response.dto';
-import { ratingLowerBoundForOvr, ratingUpperBoundForOvr } from './ovr';
-import { ratingRangesForRarities } from './rarity';
+import { OVR_MAX, PRICE_HISTORY_POINTS, reputationRangesForRarities } from './player.model';
 
-/** Fragmento de SQL parametrizado que se suma al WHERE del listado. */
 interface SqlCondition {
   sql: string;
   params: unknown[];
 }
 
-/**
- * Los filtros por OVR y por rareza NO tocan ninguna columna de OVR: no existe. Se traducen a
- * rangos sobre `player_season_stats.rating`, que es exacto porque `OVR = trunc(rating × 10)`
- * es monótono y los cortes son enteros (research #1). El índice `(season, rating)` los
- * sostiene.
- *
- * La condición se expresa como subconsulta sobre `player_season_stats` en lugar de un JOIN:
- * un jugador con estadísticas de más de una temporada multiplicaría filas en un JOIN y
- * rompería el conteo y el LIMIT. Con `EXISTS`/`NOT EXISTS` la cardinalidad del resultado es
- * estructuralmente un jugador por fila, sin depender de que la restricción de temporada esté
- * bien puesta.
- */
 @Injectable()
 export class PlayerRepository {
   constructor(private readonly em: EntityManager) {}
 
-  /**
-   * Temporada vigente: el máximo lexicográfico de `season`, que para el formato "2025-2026"
-   * coincide con el orden cronológico (research #2). Derivarla de los datos evita el modo de
-   * falla de una variable de entorno desactualizada.
-   */
   async findCurrentSeason(): Promise<string | null> {
     const [row] = await this.em.execute<{ season: string | null }[]>(
       'select max("season") as season from "player_season_stats"',
@@ -47,9 +29,6 @@ export class PlayerRepository {
   ): Promise<[PlayerWithStats[], number]> {
     const page = filter.page ?? 1;
     const limit = filter.limit ?? 20;
-
-    // El listado solo muestra jugadores con estadísticas de la temporada vigente: sin ellas la
-    // carta no tiene OVR ni métricas. Sin temporada cargada, entonces, no hay nadie que listar.
     if (season === null) return [[], 0];
 
     const qb = this.em
@@ -60,6 +39,10 @@ export class PlayerRepository {
       .where(
         'exists (select 1 from "player_season_stats" "s0" where "s0"."player_id" = "p"."id" and "s0"."season" = ?)',
         [season],
+      )
+      .andWhere(
+        `exists (select 1 from "listing" "ls" where "ls"."player_id" = "p"."id" and "ls"."status" = 'activa')`,
+        [],
       );
 
     if (filter.position?.length) {
@@ -71,8 +54,6 @@ export class PlayerRepository {
     if (filter.league?.length) {
       qb.andWhere({ 'l.name': { $in: filter.league } });
     }
-    // `base_value` es decimal: MikroORM lo tipa como string, pero la comparación debe ser
-    // numérica. Va como SQL para que Postgres compare el valor y no su representación.
     if (filter.minValue !== undefined) {
       qb.andWhere('"p"."base_value" >= ?', [filter.minValue]);
     }
@@ -80,14 +61,13 @@ export class PlayerRepository {
       qb.andWhere('"p"."base_value" <= ?', [filter.maxValue]);
     }
     if (filter.search) {
-      // El índice funcional de la migración usa esta misma función (research #4).
       qb.andWhere(
         'public.immutable_unaccent("p"."full_name") ilike public.immutable_unaccent(?)',
         [`%${filter.search}%`],
       );
     }
 
-    for (const condition of this.buildRatingConditions(filter, season)) {
+    for (const condition of this.buildReputationConditions(filter)) {
       qb.andWhere(condition.sql, condition.params);
     }
 
@@ -105,62 +85,50 @@ export class PlayerRepository {
     if (!player) return null;
 
     const [row] = await this.attachStats([player], season);
-    return row;
+    return { ...row, inCirculation: await this.countInCirculation(id) };
   }
 
-  /**
-   * Traduce los filtros de OVR y rareza a condiciones sobre `rating`. Los jugadores sin
-   * estadísticas ya quedaron afuera del listado, así que todos los que llegan acá tienen OVR.
-   */
-  private buildRatingConditions(filter: GetPlayersFilterDto, season: string): SqlCondition[] {
+  private async countInCirculation(playerId: string): Promise<number> {
+    return this.em.count(Token, { player: playerId, status: TokenStatus.OWNED });
+  }
+
+ 
+  async findManyByIds(ids: string[], season: string | null): Promise<PlayerWithStats[]> {
+    if (ids.length === 0) return [];
+    const players = await this.em
+      .getRepository(Player)
+      .find({ id: { $in: [...new Set(ids)] } }, { populate: ['team', 'team.league'] });
+    return this.attachStats(players, season);
+  }
+
+  private buildReputationConditions(filter: GetPlayersFilterDto): SqlCondition[] {
     const conditionsOut: SqlCondition[] = [];
-    const ranges = ratingRangesForRarities(filter.rarity);
-    const hasOvrFilter = filter.minOvr !== undefined || filter.maxOvr !== undefined;
 
-    if (!hasOvrFilter && ranges.length === 0) return conditionsOut;
-
-    if (hasOvrFilter) {
-      const conditions = ['"s"."player_id" = "p"."id"', '"s"."season" = ?'];
-      const params: unknown[] = [season];
-
-      if (filter.minOvr !== undefined) {
-        conditions.push('"s"."rating" >= ?');
-        params.push(ratingLowerBoundForOvr(filter.minOvr));
-      }
-      if (filter.maxOvr !== undefined) {
-        conditions.push('"s"."rating" < ?');
-        params.push(ratingUpperBoundForOvr(filter.maxOvr));
-      }
-
-      conditionsOut.push({
-        sql: `exists (select 1 from "player_season_stats" "s" where ${conditions.join(' and ')})`,
-        params,
-      });
+    if (filter.minOvr !== undefined) {
+      conditionsOut.push({ sql: '"p"."world_reputation" >= ?', params: [filter.minOvr] });
+    }
+    if (filter.maxOvr !== undefined) {
+      const upper = filter.maxOvr >= OVR_MAX ? Number.MAX_SAFE_INTEGER : filter.maxOvr;
+      conditionsOut.push({ sql: '"p"."world_reputation" <= ?', params: [upper] });
     }
 
+    const ranges = reputationRangesForRarities(filter.rarity);
     if (ranges.length > 0) {
       const clauses: string[] = [];
       const params: unknown[] = [];
 
       for (const range of ranges) {
-        const conditions = ['"s"."player_id" = "p"."id"', '"s"."season" = ?'];
-        const rangeParams: unknown[] = [season];
-
+        const conditions: string[] = [];
         if (range.min !== null) {
-          conditions.push('"s"."rating" >= ?');
-          rangeParams.push(range.min);
+          conditions.push('"p"."world_reputation" >= ?');
+          params.push(range.min);
         }
         if (range.max !== null) {
-          conditions.push('"s"."rating" < ?');
-          rangeParams.push(range.max);
+          conditions.push('"p"."world_reputation" < ?');
+          params.push(range.max);
         }
-
-        // `range.includeNull` (common incluye a quien no tiene rating) ya no aplica acá: los
-        // jugadores sin estadísticas no forman parte del listado.
-        clauses.push(
-          `(exists (select 1 from "player_season_stats" "s" where ${conditions.join(' and ')}))`,
-        );
-        params.push(...rangeParams);
+        const bounded = `(${conditions.join(' and ')})`;
+        clauses.push(range.includeNull ? `(${bounded} or "p"."world_reputation" is null)` : bounded);
       }
 
       conditionsOut.push({ sql: `(${clauses.join(' or ')})`, params });
@@ -169,27 +137,72 @@ export class PlayerRepository {
     return conditionsOut;
   }
 
-  /**
-   * Trae las estadísticas de la temporada vigente para los jugadores de la página. Va en una
-   * consulta aparte —y no en el JOIN del listado— para que la paginación cuente jugadores y
-   * no filas, sin importar cuántas temporadas tenga cada jugador cargadas.
-   */
+  
   private async attachStats(
     players: Player[],
     season: string | null,
   ): Promise<PlayerWithStats[]> {
     if (players.length === 0) return [];
 
-    if (season === null) {
-      return players.map((player) => ({ player, stats: null }));
-    }
+    const playerIds = players.map((p) => p.id);
+    const priceSeries = await this.findPriceSeries(playerIds);
+    const forSale = await this.findActiveListings(playerIds);
 
-    const stats = await this.em.getRepository(PlayerSeasonStats).find({
-      player: { $in: players.map((p) => p.id) },
-      season,
-    });
+    const stats =
+      season === null
+        ? []
+        : await this.em.getRepository(PlayerSeasonStats).find({
+            player: { $in: playerIds },
+            season,
+          });
 
     const byPlayerId = new Map(stats.map((s) => [s.player.id, s]));
-    return players.map((player) => ({ player, stats: byPlayerId.get(player.id) ?? null }));
+    return players.map((player) => ({
+      player,
+      stats: byPlayerId.get(player.id) ?? null,
+      priceSeries: priceSeries.get(player.id) ?? [],
+      forSaleCount: forSale.get(player.id)?.count ?? 0,
+      firstListedSerial: forSale.get(player.id)?.firstSerial ?? null,
+    }));
+  }
+
+  
+  private async findActiveListings(playerIds: string[]): Promise<Map<string, { count: number; firstSerial: number }>> {
+    const rows = await this.em.execute<{ player_id: string; count: number; first_serial: number }[]>(
+      `select l."player_id", count(*)::int as "count",
+              (array_agg(t."serial" order by l."created_at", l."id"))[1] as "first_serial"
+         from "listing" l
+         join "token" t on t."id" = l."token_id"
+        where l."status" = 'activa' and l."player_id" in (${playerIds.map(() => '?').join(', ')})
+        group by l."player_id"`,
+      playerIds,
+    );
+    return new Map(rows.map((row) => [row.player_id, { count: Number(row.count), firstSerial: Number(row.first_serial) }]));
+  }
+
+  
+  private async findPriceSeries(playerIds: string[]): Promise<Map<string, number[]>> {
+    const series = new Map<string, number[]>();
+    if (playerIds.length === 0) return series;
+
+    const rows = await this.em.execute<{ player_id: string; price: number }[]>(
+      `select "player_id", "price"
+         from (
+           select "player_id", "price", "calculated_at",
+                  row_number() over (partition by "player_id" order by "calculated_at" desc) as "rn"
+             from "player_quote"
+            where "player_id" in (${playerIds.map(() => '?').join(', ')})
+         ) "q"
+        where "rn" <= ?
+        order by "player_id", "calculated_at" asc`,
+      [...playerIds, PRICE_HISTORY_POINTS],
+    );
+
+    for (const row of rows) {
+      const prices = series.get(row.player_id) ?? [];
+      prices.push(Number(row.price));
+      series.set(row.player_id, prices);
+    }
+    return series;
   }
 }

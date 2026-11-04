@@ -1,216 +1,88 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
-import { useSearchParams } from 'react-router-dom';
-import { MarketFilters } from '../components/MarketFilters';
-import { PlayerDetailPanel } from '../components/PlayerDetailPanel';
-import { PlayerGrid } from '../components/PlayerGrid';
+import { useCredits } from '../app/useCredits';
+import { AppHeader } from '../components/AppHeader';
+import { MenuTile } from '../components/MenuTile';
 import { useAuth } from '../services/useAuth';
-import {
-  fetchLeagues,
-  fetchPlayerDetail,
-  fetchPlayers,
-  type ApiPlayerDetail,
-  type League,
-  type PlayerFilters,
-  type PlayersPage,
-} from '../services/players.service';
-import { SELECTED_PARAM, filtersFromParams, nextFilters, paramsFromFilters } from './home-filters';
+
+const ICON_PROPS = {
+  viewBox: '0 0 24 24',
+  fill: 'none',
+  stroke: 'currentColor',
+  strokeWidth: 1.5,
+  strokeLinecap: 'round',
+  strokeLinejoin: 'round',
+  className: 'size-full',
+} as const;
+
+const MarketIcon = (
+  <svg {...ICON_PROPS}>
+    <path d="M3 3v18h18" />
+    <path d="m7 15 4-4 3 3 6-7" />
+    <path d="M16 7h4v4" />
+  </svg>
+);
+
+const PacksIcon = (
+  <svg {...ICON_PROPS}>
+    <path d="M6 2h12l1 3-1 3v11l1 3H5l1-3V8L5 5z" />
+    <path d="M6 8h12" />
+    <path d="m12 11 1.2 2.4 2.6.4-1.9 1.8.5 2.6-2.4-1.2-2.4 1.2.5-2.6-1.9-1.8 2.6-.4z" />
+  </svg>
+);
+
+const RankingIcon = (
+  <svg {...ICON_PROPS}>
+    <path d="M8 21h8" />
+    <path d="M12 17v4" />
+    <path d="M7 4h10v6a5 5 0 0 1-10 0z" />
+    <path d="M7 6H4v2a3 3 0 0 0 3 3" />
+    <path d="M17 6h3v2a3 3 0 0 1-3 3" />
+  </svg>
+);
+
+const ProfileIcon = (
+  <svg {...ICON_PROPS}>
+    <circle cx="12" cy="8" r="4" />
+    <path d="M4 21a8 8 0 0 1 16 0" />
+  </svg>
+);
 
 /**
- * Home de mercado (06-home). Orquesta: no implementa lógica de negocio ni habla con la red
- * por su cuenta — todo el tráfico pasa por `services/` (constitución §7).
- *
- * El estado de filtros, página y jugador seleccionado vive en la URL (research #10).
+ * Menú principal (12-menu-principal): la entrada a la aplicación, con sus cuatro secciones en
+ * mosaico, al estilo del menú de FIFA.
  */
 export default function HomePage() {
   const { user, logout } = useAuth();
-  const [searchParams, setSearchParams] = useSearchParams();
-
-  const filters = useMemo(() => filtersFromParams(searchParams), [searchParams]);
-  const selectedId = searchParams.get(SELECTED_PARAM);
-
-  const [page, setPage] = useState<PlayersPage | null>(null);
-  const [leagues, setLeagues] = useState<League[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-
-  const [detail, setDetail] = useState<ApiPlayerDetail | null>(null);
-  const [detailLoading, setDetailLoading] = useState(false);
-  const [detailError, setDetailError] = useState<string | null>(null);
-
-  // Clave estable del conjunto de filtros: evita relanzar la búsqueda cuando lo único que
-  // cambió en la URL es el jugador abierto en el panel.
-  const filtersKey = useMemo(() => paramsFromFilters(filters).toString(), [filters]);
-
-  useEffect(() => {
-    let cancelled = false;
-    setLoading(true);
-    setError(null);
-
-    fetchPlayers(filters)
-      .then((result) => {
-        if (!cancelled) setPage(result);
-      })
-      .catch((err: unknown) => {
-        // El 401 lo maneja el interceptor de Axios: acá solo llegan los demás.
-        if (!cancelled) setError(describeError(err));
-      })
-      .finally(() => {
-        if (!cancelled) setLoading(false);
-      });
-
-    return () => {
-      cancelled = true;
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [filtersKey]);
-
-  useEffect(() => {
-    fetchLeagues()
-      .then(setLeagues)
-      .catch(() => setLeagues([])); // El panel se muestra igual, sin la sección de ligas.
-  }, []);
-
-  useEffect(() => {
-    if (!selectedId) {
-      setDetail(null);
-      setDetailError(null);
-      return;
-    }
-
-    let cancelled = false;
-    setDetailLoading(true);
-    setDetailError(null);
-
-    fetchPlayerDetail(selectedId)
-      .then((result) => {
-        if (!cancelled) setDetail(result);
-      })
-      .catch((err: unknown) => {
-        if (!cancelled) setDetailError(describeError(err));
-      })
-      .finally(() => {
-        if (!cancelled) setDetailLoading(false);
-      });
-
-    return () => {
-      cancelled = true;
-    };
-  }, [selectedId]);
-
-  const applyFilters = useCallback(
-    (incoming: PlayerFilters) => {
-      // Cambiar un filtro vuelve a la página 1; cambiar de página no (US2 §7).
-      setSearchParams(paramsFromFilters(nextFilters(filters, incoming), selectedId));
-    },
-    [filters, selectedId, setSearchParams],
-  );
-
-  const goToPage = useCallback(
-    (nextPage: number) => {
-      setSearchParams(paramsFromFilters({ ...filters, page: nextPage }, selectedId));
-    },
-    [filters, selectedId, setSearchParams],
-  );
-
-  // Abrir y cerrar el panel solo toca el parámetro del jugador: los filtros y la página
-  // quedan donde estaban, que es lo que pide FR-022.
-  const selectPlayer = useCallback(
-    (id: string) => setSearchParams(paramsFromFilters(filters, id)),
-    [filters, setSearchParams],
-  );
-  const closePanel = useCallback(
-    () => setSearchParams(paramsFromFilters(filters, null)),
-    [filters, setSearchParams],
-  );
-
-  const currentPage = page?.meta.page ?? filters.page ?? 1;
-  const totalPages = page?.meta.totalPages ?? 0;
+  const { balance } = useCredits();
 
   return (
-    <main className="min-h-screen bg-navy-deep text-slate-200">
-      <header className="flex flex-wrap items-center justify-between gap-3 border-b border-white/10 px-6 py-4">
-        <h1 className="title-display text-2xl text-neon-blue">MyFootballTokens</h1>
-        <div className="flex items-center gap-4 text-sm">
-          <span className="text-slate-400">{user?.username}</span>
-          <button onClick={logout} className="bevel bg-navy-card px-4 py-1 text-slate-200">
-            Cerrar sesion
-          </button>
-        </div>
-      </header>
+    <main className="flex min-h-screen flex-col bg-navy-deep text-slate-200">
+      <AppHeader username={user?.username} balance={balance} onLogout={logout} isAdmin={user?.role === 'admin'} />
 
-      <div className="flex flex-col gap-6 p-6 md:flex-row">
-        <MarketFilters leagues={leagues} filters={filters} onChange={applyFilters} />
+      <div className="mx-auto flex w-full max-w-6xl flex-1 flex-col gap-4 p-6">
+        <h1 className="title-display text-3xl text-slate-100">Menú principal</h1>
 
-        <section className="min-w-0 flex-1">
-          {loading && <p className="py-12 text-center text-slate-400">Cargando jugadores…</p>}
-
-          {error && !loading && (
-            <div className="py-12 text-center">
-              <p className="text-error-red">{error}</p>
-              <button
-                onClick={() => goToPage(currentPage)}
-                className="bevel mt-3 bg-navy-card px-4 py-2 text-sm"
-              >
-                Reintentar
-              </button>
-            </div>
-          )}
-
-          {!loading && !error && page?.data.length === 0 && (
-            <div className="py-12 text-center">
-              <p className="title-display text-slate-300">Sin resultados</p>
-              <p className="mt-1 text-sm text-slate-500">
-                Ningún jugador cumple con los filtros aplicados. Probá quitando alguno.
-              </p>
-            </div>
-          )}
-
-          {!loading && !error && page && page.data.length > 0 && (
-            <>
-              <p className="mb-4 text-xs text-slate-500">
-                {page.meta.total} jugadores · página {currentPage} de {totalPages}
-              </p>
-
-              <PlayerGrid players={page.data} selectedId={selectedId} onSelect={selectPlayer} />
-
-              <nav className="mt-6 flex items-center justify-center gap-4" aria-label="Paginación">
-                <button
-                  onClick={() => goToPage(currentPage - 1)}
-                  disabled={currentPage <= 1}
-                  className="bevel bg-navy-card px-4 py-2 text-sm disabled:opacity-40"
-                >
-                  Anterior
-                </button>
-                <span className="text-sm text-slate-400">
-                  {currentPage} / {totalPages}
-                </span>
-                <button
-                  onClick={() => goToPage(currentPage + 1)}
-                  disabled={currentPage >= totalPages}
-                  className="bevel bg-navy-card px-4 py-2 text-sm disabled:opacity-40"
-                >
-                  Siguiente
-                </button>
-              </nav>
-            </>
-          )}
-        </section>
-
-        {selectedId && (
-          <PlayerDetailPanel
-            player={detail}
-            loading={detailLoading}
-            error={detailError}
-            onClose={closePanel}
+        <nav aria-label="Menú principal" className="grid flex-1 grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4 lg:grid-rows-2">
+          <MenuTile
+            to="/market"
+            title="Mercado"
+            description="Comprá y vendé cartas de jugadores a su cotización."
+            icon={MarketIcon}
+            accent="blue"
+            featured
+            className="sm:col-span-2 lg:row-span-2 lg:min-h-[28rem]"
           />
-        )}
+          <MenuTile
+            to="/packs"
+            title="Sobres"
+            description="Abrí sobres y sumá cartas nuevas."
+            icon={PacksIcon}
+            accent="gold"
+            className="sm:col-span-2"
+          />
+          <MenuTile to="/ranking" title="Ranking" description="Los jugadores más caros según la estrategia activa." icon={RankingIcon} accent="violet" />
+          <MenuTile to="/profile" title="Mi perfil" description="Tu saldo y tu historial de operaciones." icon={ProfileIcon} accent="green" />
+        </nav>
       </div>
     </main>
   );
-}
-
-function describeError(err: unknown): string {
-  const status = (err as { response?: { status?: number } })?.response?.status;
-  if (status === 400) return 'Alguno de los filtros no es válido. Revisá los rangos.';
-  return 'No se pudo cargar el mercado. Intentá de nuevo en unos segundos.';
 }

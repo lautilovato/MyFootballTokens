@@ -17,10 +17,7 @@ import {
   ValidatorConstraintInterface,
 } from 'class-validator';
 import { PlayerPosition } from '../../../infrastructure/database/entities/player.entity';
-import { OVR_MAX } from '../ovr';
-import { Rarity } from '../rarity';
-
-export const RARITIES: Rarity[] = ['legendary', 'epic', 'rare', 'common'];
+import { OVR_MAX, RARITIES, Rarity } from '../player.model';
 
 /**
  * Los parámetros repetibles llegan como string cuando aparecen una sola vez
@@ -80,7 +77,8 @@ export class GetPlayersFilterDto {
   @ApiPropertyOptional({
     enum: RARITIES,
     isArray: true,
-    description: 'Repetible. Se traduce a un rango sobre el rating de temporada.',
+    description:
+      'Repetible. Se traduce a un rango sobre la reputación (el OVR, 08-sobres FR-016); common incluye a los jugadores sin reputación.',
   })
   @IsOptional()
   @Transform(toArray)
@@ -106,7 +104,7 @@ export class GetPlayersFilterDto {
   @ApiPropertyOptional({
     minimum: 0,
     maximum: OVR_MAX,
-    description: 'OVR mínimo, inclusivo. Excluye a los jugadores sin estadísticas (FR-030).',
+    description: 'OVR mínimo, inclusivo. Excluye a los jugadores sin reputación cargada (08-sobres FR-068).',
   })
   @IsOptional()
   @Type(() => Number)
@@ -116,7 +114,11 @@ export class GetPlayersFilterDto {
   @Validate(NotGreaterThan, ['maxOvr'])
   minOvr?: number;
 
-  @ApiPropertyOptional({ minimum: 0, maximum: OVR_MAX, description: 'OVR máximo, inclusivo.' })
+  @ApiPropertyOptional({
+    minimum: 0,
+    maximum: OVR_MAX,
+    description: 'OVR máximo, inclusivo. Excluye a los jugadores sin reputación cargada (08-sobres FR-068).',
+  })
   @IsOptional()
   @Type(() => Number)
   @IsInt()
